@@ -6,7 +6,7 @@ H			[a-fA-F0-9]
 %{
 #include <stdio.h>
 #include <string.h>
-#include "calc.tab.h"
+#include "comp.tab.h"
 
 int hexToDec(char *);
 %}

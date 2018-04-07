@@ -1,0 +1,7 @@
+.vscode
+.DS_Store
+
+lex.yy.c
+comp.tab.h
+comp.tab.c
+comp
