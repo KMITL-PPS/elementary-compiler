@@ -25,7 +25,7 @@ int hexToDec(char *);
 {H}+[#]						{ yylval = hexToDec(yytext); return CONSTANT; }
 {D}+						{ yylval = atoi(yytext); return CONSTANT; }
 
-"$"{L}						{ yylval = yytext[2] - 'A'; return REG; }
+"$"{L}						{ yylval = yytext[1] - 'A'; return REG; }
 
 "<-"						{ return LEFT_ARROW; }
 "->"						{ return RIGHT_ARROW; }
@@ -33,9 +33,13 @@ int hexToDec(char *);
 ("el"|"EL"|"eL"|"El")		{ return EL; }
 ("rp"|"RP"|"rP"|"Rp")		{ return RP; }
 
-[ \t\v\f]					{ /* ignore whitespace */ }
+"\""						{ return DOUBLEQUOTE; }
+":"							{ return COLLON; }
 
-\n							{ yylineno++; return '\n'; }
+[\v\f]						{ /* ignore whitespace */ }
+
+\t							{ return TAB; }
+\n							{ yylineno++; return NEWLINE; }
 
 .							{ return yytext[0]; }
 
