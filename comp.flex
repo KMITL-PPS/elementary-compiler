@@ -20,11 +20,18 @@ int hexToDec(char *);
 "%"							{ return '%'; }
 "("							{ return '('; }
 ")"							{ return ')'; }
+"<->"						{ return '=' }
 
 {H}+[#]						{ yylval = hexToDec(yytext); return CONSTANT; }
 {D}+						{ yylval = atoi(yytext); return CONSTANT; }
 
 "$"{L}						{ yylval = yytext[2] - 'A'; return REG; }
+
+"<-"						{ return LEFT_ARROW; }
+"->"						{ return RIGHT_ARROW; }
+("if"|"IF"|"iF"|"If")		{ return IF; }
+("el"|"EL"|"eL"|"El")		{ return EL; }
+("rp"|"RP"|"rP"|"Rp")		{ return RP; }
 
 [ \t\v\f]					{ /* ignore whitespace */ }
 
