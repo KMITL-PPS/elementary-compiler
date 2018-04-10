@@ -29,9 +29,9 @@ int hexToDec(char *);
 
 "<-"						{ return LEFT_ARROW; }
 "->"						{ return RIGHT_ARROW; }
-("if"|"IF"|"iF"|"If")		{ return IF; }
-("el"|"EL"|"eL"|"El")		{ return EL; }
-("rp"|"RP"|"rP"|"Rp")		{ return RP; }
+[iI][fF]					{ return IF; }
+[eE][lL]					{ return EL; }
+[rR][pP]					{ return RP; }
 
 "\""						{ return DOUBLEQUOTE; }
 ":"							{ return COLLON; }

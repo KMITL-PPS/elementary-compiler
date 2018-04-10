@@ -21,17 +21,16 @@ typedef struct node {
 #define REG_Z 25
 
 int errors = 0;
-int reg[26] = {0}, acc = 0, size = 0;
+int reg[52] = {0}, acc = 0, size = 0;
 node_t *top = NULL;
 %}
 
 %start  				input
 
-%token  				CONSTANT REG ACCUMULATOR PUSH POP TOP SIZE SHOW LOAD
+%token  				CONSTANT REG LEFT_ARROW RIGHT_ARROW IF EL RP
 
-%left   				AND OR
 %left   				'+' '-'
-%left   				'*' '/' '\\'
+%left   				'*' '/' '%'
 %right					NOT
 %precedence				NEG
 %right					'^'
