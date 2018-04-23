@@ -25,6 +25,8 @@ int hexToDec(char *);
 {H}+[#]						{ yylval = hexToDec(yytext); return CONSTANT; }
 {D}+						{ yylval = atoi(yytext); return CONSTANT; }
 
+(\"([^\"])*\")				{ yylval = yytext; return TEXT;  }
+
 "$"{L}						{ yylval = yytext[1] - 'A'; return REG; }
 
 "<-"						{ return LEFT_ARROW; }
