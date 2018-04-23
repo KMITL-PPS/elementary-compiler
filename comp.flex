@@ -20,7 +20,7 @@ int hexToDec(char *);
 "%"							{ return '%'; }
 "("							{ return '('; }
 ")"							{ return ')'; }
-"<->"						{ return '='; }
+"<->"						{ return EQUALS; }
 
 {H}+[#]						{ yylval = hexToDec(yytext); return CONSTANT; }
 {D}+						{ yylval = atoi(yytext); return CONSTANT; }
