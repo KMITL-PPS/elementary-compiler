@@ -4,6 +4,11 @@
 #include <stdlib.h>
 #include <math.h>
 
+// yylval of CMP token
+enum {NOTEQ = 0, EQ, GREATER, LESS, GREATEREQ, LESSEQ};
+
+// register $A - $z
+// TODO: remove this when convert to asm
 int reg[52] = {0};
 
 %}
@@ -43,15 +48,6 @@ text:
 hex:
   %empty
 | '#'
-;
-
-comparator:
-  EQUALS
-| NOTEQ
-| '<'
-| '>'
-| LESSEQ
-| GREATEREQ
 ;
 
 exp:
@@ -95,7 +91,7 @@ assignexp:
 ;
 
 specexp:
-  IF '(' exp comparator exp ')' ':'     {}
+  IF '(' exp CMP exp ')' ':'     {}
 | EL ':'                                {}
 | RP '(' exp '|' exp ')' ':'            {}
 ;
