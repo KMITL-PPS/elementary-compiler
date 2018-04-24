@@ -23,12 +23,13 @@ int getReg(char);
                                 return '('; // ) for dummy purpose
                             }
 ")"                         { return ')';                                       }
-"<->"                       { return EQUALS;                                    }
-">"                         { return '>';                                       }
-"<"                         { return '<';                                       }
-"<->>"                      { return GREATEREQ;                                 }
-"<<->"                      { return LESSEQ;                                    }
-">-<"                       { return NOTEQ;                                     }
+">-<"                       { yylval = 0; return CMP;                           }
+"<->"                       { yylval = 1; return CMP;                           }
+">"                         { yylval = 2; return CMP;                           }
+"<"                         { yylval = 3; return CMP;                           }
+"<->>"                      { yylval = 4; return CMP;                           }
+"<<->"                      { yylval = 5; return CMP;                           }
+
 
 
 {H}+[#]                     {

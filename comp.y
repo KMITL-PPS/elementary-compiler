@@ -10,7 +10,7 @@ int reg[52] = {0};
 
 %start                                  input
 
-%token                                  CONSTANT REG TEXT EQUALS NOTEQ LESSEQ GREATEREQ LEFT_ARROW RIGHT_ARROW IF EL RP DOUBLEQUOTE NEWLINE TAB
+%token                                  CONSTANT REG TEXT CMP LEFT_ARROW RIGHT_ARROW IF EL RP DOUBLEQUOTE NEWLINE TAB
 
 %left                                   '+' '-'
 %left                                   '*' '/' '%'
