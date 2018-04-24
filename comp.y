@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <math.h>
 
+void yyerror(char *s);
+
 // yylval of CMP token
 enum {NOTEQ = 0, EQ, GREATER, LESS, GREATEREQ, LESSEQ};
 
@@ -33,10 +35,10 @@ input:
 ;
 
 line:
-  '\n'
-| exp '\n'                              { printf("EXP: %d\n", $1);                        }
-| assignexp '\n'
-| printexp '\n'
+  NEWLINE
+| exp NEWLINE                           { printf("EXP: %d\n", $1);                        }
+| assignexp NEWLINE
+| printexp NEWLINE
 | specexp
 ;
 
@@ -78,7 +80,7 @@ exp:
                                             YYERROR;
                                         }
 | exp '^' exp                           { $$ = pow($1, $3);                             }
-| | '(' exp ')'                         { $$ = $2;                                      }
+| '(' exp ')'                           { $$ = $2;                                      }
 ;
 
 printexp:
@@ -101,19 +103,18 @@ printexp:
 assignexp:
   REG LEFT_ARROW exp                    {
                                             reg[$1] = $3;
-                                            printf("REG[%d] = %d\n", $1, $3);
+                                            printf("R[%d] = %d\n", $1, $3);
                                         }
 ;
 
 specexp:
-  IF '(' exp CMP exp ')' ':' '\n'       { printf("if %d CMP[%d] %d:\n", $3, $4, $5);    }
-| EL ':' '\n'                           { printf("else:\n");                            }
-| RP '(' exp '|' exp ')' ':' '\n'       { printf("repeat %d -> %d:\n", $3, $5);         }
+  IF '(' exp CMP exp ')' ':' NEWLINE    { printf("if %d [%d] %d:\n", $3, $4, $5);    }
+| EL ':' NEWLINE                        { printf("else:\n");                            }
+| RP '(' exp '|' exp ')' ':' NEWLINE    { printf("repeat %d -> %d:\n", $3, $5);         }
 ;
 
 %%
 
 void yyerror(char *s) {
     fprintf(stderr, "! ERROR: %s\n", s);
-    errors++;
 }

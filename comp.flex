@@ -14,6 +14,17 @@ int getReg(char);
 
 %%
 
+"<->>"                      { yylval = 4; return CMP;                           }
+"<<->"                      { yylval = 5; return CMP;                           }
+">-<"                       { yylval = 0; return CMP;                           }
+"<->"                       { yylval = 1; return CMP;                           }
+
+"<-"                        { return LEFT_ARROW;                                }
+"->"                        { return RIGHT_ARROW;                               }
+
+">"                         { yylval = 2; return CMP;                           }
+"<"                         { yylval = 3; return CMP;                           }
+
 "+"                         { return '+';                                       }
 "-"                         { return '-';                                       }
 "*"                         { return '*';                                       }
@@ -23,14 +34,6 @@ int getReg(char);
                                 return '('; // ) for dummy purpose
                             }
 ")"                         { return ')';                                       }
-">-<"                       { yylval = 0; return CMP;                           }
-"<->"                       { yylval = 1; return CMP;                           }
-">"                         { yylval = 2; return CMP;                           }
-"<"                         { yylval = 3; return CMP;                           }
-"<->>"                      { yylval = 4; return CMP;                           }
-"<<->"                      { yylval = 5; return CMP;                           }
-
-
 
 {H}+[#]                     {
                                 yylval = hexToDec(yytext);
@@ -40,25 +43,22 @@ int getReg(char);
                                 yylval = atoi(yytext);
                                 return CONSTANT;
                             }
-
-(\"([^\"])*\")              {
-                                yylval = yytext;
-                                return TEXT;
-                            }
-
 "$"{L}                      {
                                 yylval = yytext[1] - 'A';
                                 return REG;
                             }
 
-"<-"                        { return LEFT_ARROW;                                }
-"->"                        { return RIGHT_ARROW;                               }
 [iI][fF]                    { return IF;                                        }
 [eE][lL]                    { return EL;                                        }
 [rR][pP]                    { return RP;                                        }
 
 "\""                        { return DOUBLEQUOTE;                               }
-":"                         { return COLLON;                                    }
+":"                         { return ':';                                       }
+
+(\"([^\"])*\")              {
+                                yylval = yytext;
+                                return TEXT;
+                            }
 
 [\v\f]                      { /* ignore whitespace */                           }
 
@@ -99,3 +99,25 @@ int getReg(char c)
         return c - 'a' + 26;
     }
 }
+
+// test flex
+// int main(int argc, char **argv)
+// {
+//     // yyin = fopen(argv[1], "r");
+    
+//     int token;
+
+//     while((token = yylex())) {
+//         printf("[%d", token);
+
+//         if (token == 300 || token == 301) {
+//             printf(", %s", yytext);
+//         }
+
+//         printf("]\n");
+//     }
+
+//     // fclose(yyin);
+
+//     return 0;
+// }
