@@ -1,6 +1,6 @@
-D			[0-9]
-L			[a-zA-Z]
-H			[a-fA-F0-9]
+D            [0-9]
+L            [a-zA-Z]
+H            [a-fA-F0-9]
 
 %option noyywrap
 %{
@@ -13,57 +13,57 @@ int hexToDec(char *);
 
 %%
 
-"+"							{ return '+'; }
-"-"							{ return '-'; }
-"*"							{ return '*'; }
-"/"							{ return '/'; }
-"%"							{ return '%'; }
-"("							{ return '('; }
-")"							{ return ')'; }
-"<->"						{ return EQUALS; }
+"+"                         { return '+';                                   }
+"-"                         { return '-';                                   }
+"*"                         { return '*';                                   }
+"/"                         { return '/';                                   }
+"%"                         { return '%';                                   }
+"("                         { return '(';                                   }
+")"                         { return ')';                                   }
+"<->"                       { return EQUALS;                                }
 
-{H}+[#]						{ yylval = hexToDec(yytext); return CONSTANT; }
-{D}+						{ yylval = atoi(yytext); return CONSTANT; }
+{H}+[#]                     { yylval = hexToDec(yytext); return CONSTANT;   }
+{D}+                        { yylval = atoi(yytext); return CONSTANT;       }
 
-(\"([^\"])*\")				{ yylval = yytext; return TEXT;  }
+(\"([^\"])*\")              { yylval = yytext; return TEXT;                 }
 
-"$"{L}						{ yylval = yytext[1] - 'A'; return REG; }
+"$"{L}                      { yylval = yytext[1] - 'A'; return REG;         }
 
-"<-"						{ return LEFT_ARROW; }
-"->"						{ return RIGHT_ARROW; }
-[iI][fF]					{ return IF; }
-[eE][lL]					{ return EL; }
-[rR][pP]					{ return RP; }
+"<-"                        { return LEFT_ARROW;                            }
+"->"                        { return RIGHT_ARROW;                           }
+[iI][fF]                    { return IF;                                    }
+[eE][lL]                    { return EL;                                    }
+[rR][pP]                    { return RP;                                    }
 
-"\""						{ return DOUBLEQUOTE; }
-":"							{ return ':'; }
+"\""                        { return DOUBLEQUOTE;                           }
+":"                         { return ':';                                   }
 
-[\v\f]						{ /* ignore whitespace */ }
+[\v\f]                      { /* ignore whitespace */                       }
 
-\t							{ return TAB; }
-\n							{ yylineno++; return NEWLINE; }
+\t                          { return TAB;                                   }
+\n                          { yylineno++; return NEWLINE;                   }
 
-.							{ return yytext[0]; }
+.                           { return yytext[0];                             }
 
 %%
 
 int hexToDec(char *s)
 {
-	int i = 0, value = 0;
-	for (i = 0; s[i] != 'h' && s[i] != 'H'; i++)
-	{
-		value *= 16;
-		if (s[i] >= '0' && s[i] <= '9')
-		{
-			value += s[i] - '0';
-		}
-		else
-		{
-			if (s[i] >= 65 && s[i] <= 90)
-				s[i] = s[i] + 32;
-			value += s[i] - 'A' + 10;
-		}
-	}
+    int i = 0, value = 0;
+    for (i = 0; s[i] != 'h' && s[i] != 'H'; i++)
+    {
+        value *= 16;
+        if (s[i] >= '0' && s[i] <= '9')
+        {
+            value += s[i] - '0';
+        }
+        else
+        {
+            if (s[i] >= 65 && s[i] <= 90)
+                s[i] = s[i] + 32;
+            value += s[i] - 'A' + 10;
+        }
+    }
 
-	return value;
+    return value;
 }
