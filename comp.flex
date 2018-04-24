@@ -36,7 +36,7 @@ int hexToDec(char *);
 [rR][pP]					{ return RP; }
 
 "\""						{ return DOUBLEQUOTE; }
-":"							{ return COLLON; }
+":"							{ return ':'; }
 
 [\v\f]						{ /* ignore whitespace */ }
 
