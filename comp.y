@@ -108,7 +108,7 @@ assignexp:
 ;
 
 specexp:
-  IF '(' exp CMP exp ')' ':' NEWLINE    { printf("if %d [%d] %d:\n", $3, $4, $5);    }
+  IF '(' exp CMP exp ')' ':' NEWLINE    { printf("if %d C[%d] %d:\n", $3, $4, $5);    }
 | EL ':' NEWLINE                        { printf("else:\n");                            }
 | RP '(' exp '|' exp ')' ':' NEWLINE    { printf("repeat %d -> %d:\n", $3, $5);         }
 ;

@@ -44,7 +44,7 @@ int getReg(char);
                                 return CONSTANT;
                             }
 "$"{L}                      {
-                                yylval = yytext[1] - 'A';
+                                yylval = getReg(yytext[1]);
                                 return REG;
                             }
 
@@ -60,7 +60,7 @@ int getReg(char);
                                 return TEXT;
                             }
 
-[\v\f]                      { /* ignore whitespace */                           }
+[ \v\f]                     { /* ignore whitespace */                           }
 
 \t                          { return TAB;                                       }
 \n                          {
@@ -98,6 +98,7 @@ int getReg(char c)
     } else if (c >= 'a' && c <= 'z') {
         return c - 'a' + 26;
     }
+    return -1;
 }
 
 // test flex
