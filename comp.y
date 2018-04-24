@@ -4,23 +4,27 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define REG_TOP 27
-#define REG_A 0
-#define REG_Z 25
-int errors = 0;
-int reg[26] = {0}, acc = 0, size = 0;
+int reg[52] = {0};
 
 %}
 
-%start input
+%start 					input
 
-%token CONSTANT TEXT EQUALS LEFT_ARROW RIGHT_ARROW IF EL RP DOUBLEQUOTE NEWLINE REG TAB
+%token 					CONSTANT REG TEXT EQUALS LEFT_ARROW RIGHT_ARROW IF EL RP DOUBLEQUOTE NEWLINE TAB
+
+%left   				'+' '-'
+%left   				'*' '/' '\\'
+%precedence				NEG
+%right					'^'
 
 %%
 
 input:
   %empty
-| input line
+| input line			{}
+| input error line		{
+							YYABORT;
+						}		
 ;
 
 line:
@@ -48,31 +52,35 @@ printexp:
 
 exp:
   CONSTANT
-| REG
-
-| exp '+' exp			{
-					//to do
-				}
-
-| exp '-' exp			{
-					//to do
-				}
-
-| exp '*' exp			{
-					//to do
-				}
-
+| REG					{ $$ = reg[i];								}
+| exp '+' exp			{ $$ = $1 + $3;     						}
+| exp '-' exp			{ $$ = $1 - $3;      						}
+| exp '*' exp			{ $$ = $1 * $3;      						}
 | exp '/' exp			{
-					//to do 
-				}
-
+	   						if ($3)
+								$$ = $1 / $3;
+	   						else
+							{
+								yyerror("division by zero");
+								YYABORT;
+							}
+	 					}
 | exp '%' exp			{
-					//to do
-				}
-
-| '-' exp			{
-					//to do
-				}		
+	   						if ($3)
+								$$ = $1 % $3;
+	   						else
+							{
+								yyerror("modulo by zero");
+								YYABORT;
+							}
+	 					}
+| '-' exp  %prec NEG	{ $$ = -$2;          						}
+| '+' exp				{
+							yyerror("syntax error");
+							YYERROR;
+						}
+| exp '^' exp			{ $$ = pow($1, $3);     					}
+| | '(' exp ')'			{ $$ = $2;           						}
 ;
 
 assignexp:
@@ -95,42 +103,22 @@ specexp:
 				}
 ;
 
+%%
 
+void yyerror(char *s)
+{
+	fprintf(stderr, "! ERROR: %s\n", s);
+	errors++;
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+int* getRegister(int i)
+{
+	if (i >= 0 && i <= 51)
+	{
+		return &reg[i];
+	}
+	else	// ERROR
+	{
+		return 0;
+	}
+}
