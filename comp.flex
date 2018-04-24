@@ -9,6 +9,7 @@ H               [a-fA-F0-9]
 #include "comp.tab.h"
 
 int hexToDec(char *);
+int getReg(char);
 %}
 
 %%
@@ -74,15 +75,11 @@ int hexToDec(char *s)
 {
     // } for dummy purpose
     int i = 0, value = 0;
-    for (i = 0; s[i] != 'h' && s[i] != 'H'; i++)
-    {
+    for (i = 0; s[i] != 'h' && s[i] != 'H'; i++) {
         value *= 16;
-        if (s[i] >= '0' && s[i] <= '9')
-        {
+        if (s[i] >= '0' && s[i] <= '9') {
             value += s[i] - '0';
-        }
-        else
-        {
+        } else {
             if (s[i] >= 65 && s[i] <= 90)
                 s[i] = s[i] + 32;
             value += s[i] - 'A' + 10;
@@ -95,5 +92,9 @@ int hexToDec(char *s)
 int getReg(char c)
 {
     // } for dummy purpose
-    if (c >= 'A' && c <= )
+    if (c >= 'A' && c <= 'Z') {
+        return c - 'A';
+    } else if (c >= 'a' && c <= 'z') {
+        return c - 'a' + 26;
+    }
 }
