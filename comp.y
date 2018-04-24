@@ -8,23 +8,23 @@ int reg[52] = {0};
 
 %}
 
-%start 					input
+%start                          input
 
-%token 					CONSTANT REG TEXT EQUALS LEFT_ARROW RIGHT_ARROW IF EL RP DOUBLEQUOTE NEWLINE TAB
+%token                          CONSTANT REG TEXT EQUALS LEFT_ARROW RIGHT_ARROW IF EL RP DOUBLEQUOTE NEWLINE TAB
 
-%left   				'+' '-'
-%left   				'*' '/' '\\'
-%precedence				NEG
-%right					'^'
+%left                           '+' '-'
+%left                           '*' '/' '\\'
+%precedence                     NEG
+%right                          '^'
 
 %%
 
 input:
   %empty
-| input line			{}
-| input error line		{
-							YYABORT;
-						}		
+| input line                    {}
+| input error line              {
+                                    YYABORT;
+                                }        
 ;
 
 line:
@@ -52,73 +52,48 @@ printexp:
 
 exp:
   CONSTANT
-| REG					{ $$ = reg[i];								}
-| exp '+' exp			{ $$ = $1 + $3;     						}
-| exp '-' exp			{ $$ = $1 - $3;      						}
-| exp '*' exp			{ $$ = $1 * $3;      						}
-| exp '/' exp			{
-	   						if ($3)
-								$$ = $1 / $3;
-	   						else
-							{
-								yyerror("division by zero");
-								YYABORT;
-							}
-	 					}
-| exp '%' exp			{
-	   						if ($3)
-								$$ = $1 % $3;
-	   						else
-							{
-								yyerror("modulo by zero");
-								YYABORT;
-							}
-	 					}
-| '-' exp  %prec NEG	{ $$ = -$2;          						}
-| '+' exp				{
-							yyerror("syntax error");
-							YYERROR;
-						}
-| exp '^' exp			{ $$ = pow($1, $3);     					}
-| | '(' exp ')'			{ $$ = $2;           						}
+| REG                           { $$ = reg[$1];                                 }
+| exp '+' exp                   { $$ = $1 + $3;                                 }
+| exp '-' exp                   { $$ = $1 - $3;                                 }
+| exp '*' exp                   { $$ = $1 * $3;                                 }
+| exp '/' exp                   {
+                                    if ($3)
+                                        $$ = $1 / $3;
+                                    else {
+                                        yyerror("division by zero");
+                                        YYABORT;
+                                    }
+                                }
+| exp '%' exp                   {
+                                    if ($3)
+                                        $$ = $1 % $3;
+                                    else {
+                                        yyerror("modulo by zero");
+                                        YYABORT;
+                                    }
+                                }
+| '-' exp  %prec NEG            { $$ = -$2;                                     }
+| '+' exp                       {
+                                    yyerror("syntax error");
+                                    YYERROR;
+                                }
+| exp '^' exp                   { $$ = pow($1, $3);                             }
+| | '(' exp ')'                 { $$ = $2;                                      }
 ;
 
 assignexp:
-  REG LEFT_ARROW exp		{
-					//to do assign some value to $1
-				}
+  REG LEFT_ARROW exp            { reg[$1] = $3;                                 }
 ;
 
 specexp:
-  IF '(' exp EQUALS exp ')' ':'	{
-					//to do 
-				}
-
-| EL ':'				{
-					//to do
-				}
-
-| RP '(' exp '|' exp ')' ':'	{
-					//to do
-				}
+  IF '(' exp EQUALS exp ')' ':' {}
+| EL ':'                        {}
+| RP '(' exp '|' exp ')' ':'    {}
 ;
 
 %%
 
-void yyerror(char *s)
-{
-	fprintf(stderr, "! ERROR: %s\n", s);
-	errors++;
-}
-
-int* getRegister(int i)
-{
-	if (i >= 0 && i <= 51)
-	{
-		return &reg[i];
-	}
-	else	// ERROR
-	{
-		return 0;
-	}
+void yyerror(char *s) {
+    fprintf(stderr, "! ERROR: %s\n", s);
+    errors++;
 }
