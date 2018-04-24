@@ -10,10 +10,10 @@ int reg[52] = {0};
 
 %start                          input
 
-%token                          CONSTANT REG TEXT EQUALS LEFT_ARROW RIGHT_ARROW IF EL RP DOUBLEQUOTE NEWLINE TAB
+%token                          CONSTANT REG TEXT EQUALS NOTEQ LESSEQ GREATEREQ LEFT_ARROW RIGHT_ARROW IF EL RP DOUBLEQUOTE NEWLINE TAB
 
 %left                           '+' '-'
-%left                           '*' '/' '\\'
+%left                           '*' '/' '%'
 %precedence                     NEG
 %right                          '^'
 
@@ -24,7 +24,7 @@ input:
 | input line                    {}
 | input error line              {
                                     YYABORT;
-                                }        
+                                }
 ;
 
 line:
@@ -32,7 +32,7 @@ line:
 | exp '\n'
 | assignexp '\n'
 | printexp '\n'
-| specexp '\n'
+| specexp
 ;
 
 text:
@@ -45,9 +45,13 @@ hex:
 | '#'
 ;
 
-printexp:
-  exp RIGHT_ARROW hex
-| text RIGHT_ARROW hex
+comparator:
+  EQUALS
+| NOTEQ
+| '<'
+| '>'
+| LESSEQ
+| GREATEREQ
 ;
 
 exp:
@@ -81,12 +85,17 @@ exp:
 | | '(' exp ')'                 { $$ = $2;                                      }
 ;
 
+printexp:
+  exp RIGHT_ARROW hex
+| text RIGHT_ARROW hex
+;
+
 assignexp:
   REG LEFT_ARROW exp            { reg[$1] = $3;                                 }
 ;
 
 specexp:
-  IF '(' exp EQUALS exp ')' ':' {}
+  IF '(' exp comparator exp ')' ':' {}
 | EL ':'                        {}
 | RP '(' exp '|' exp ')' ':'    {}
 ;
