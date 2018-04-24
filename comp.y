@@ -34,20 +34,20 @@ input:
 
 line:
   '\n'
-| exp '\n'                              { printf(" = %d\n", $1);                        }
+| exp '\n'                              { printf("EXP: %d\n", $1);                        }
 | assignexp '\n'
 | printexp '\n'
 | specexp
 ;
 
 text:
-  %empty
-| TEXT
+  %empty                                { $$ = 0;                                       }
+| TEXT                                  { $$ = $1;                                      }
 ;
 
 hex:
-  %empty
-| '#'
+  %empty                                { $$ = 0;                                       }
+| '#'                                   { $$ = 1;                                       }
 ;
 
 exp:
@@ -82,18 +82,33 @@ exp:
 ;
 
 printexp:
-  exp RIGHT_ARROW hex
-| text RIGHT_ARROW hex
+  exp RIGHT_ARROW hex                   {
+                                            if ($3) {
+                                                printf("%x", $1);
+                                            } else {
+                                                printf("%d", $1);
+                                            }
+                                        }
+| text RIGHT_ARROW                      {
+                                            if ($1) {
+                                                printf("%s", $1);
+                                            } else {
+                                                printf("\n");
+                                            }
+                                        }
 ;
 
 assignexp:
-  REG LEFT_ARROW exp                    { reg[$1] = $3;                                 }
+  REG LEFT_ARROW exp                    {
+                                            reg[$1] = $3;
+                                            printf("REG[%d] = %d\n", $1, $3);
+                                        }
 ;
 
 specexp:
-  IF '(' exp CMP exp ')' ':'     {}
-| EL ':'                                {}
-| RP '(' exp '|' exp ')' ':'            {}
+  IF '(' exp CMP exp ')' ':' '\n'       { printf("if %d CMP[%d] %d:\n", $3, $4, $5);    }
+| EL ':' '\n'                           { printf("else:\n");                            }
+| RP '(' exp '|' exp ')' ':' '\n'       { printf("repeat %d -> %d:\n", $3, $5);         }
 ;
 
 %%
