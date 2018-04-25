@@ -14,16 +14,16 @@ int getReg(char);
 
 %%
 
-"<->>"                      { yylval = 4; return CMP;                           }
-"<<->"                      { yylval = 5; return CMP;                           }
-">-<"                       { yylval = 0; return CMP;                           }
-"<->"                       { yylval = 1; return CMP;                           }
+"<->>"                      { yylval.i = 4; return CMP;                        }
+"<<->"                      { yylval.i = 5; return CMP;                        }
+">-<"                       { yylval.i = 0; return CMP;                        }
+"<->"                       { yylval.i = 1; return CMP;                        }
 
 "<-"                        { return LEFT_ARROW;                                }
 "->"                        { return RIGHT_ARROW;                               }
 
-">"                         { yylval = 2; return CMP;                           }
-"<"                         { yylval = 3; return CMP;                           }
+">"                         { yylval.i = 2; return CMP;                        }
+"<"                         { yylval.i = 3; return CMP;                        }
 
 "+"                         { return '+';                                       }
 "-"                         { return '-';                                       }
@@ -36,15 +36,15 @@ int getReg(char);
 ")"                         { return ')';                                       }
 
 {H}+[#]                     {
-                                yylval = hexToDec(yytext);
+                                yylval.i = hexToDec(yytext);
                                 return CONSTANT;
                             }
 {D}+                        {
-                                yylval = atoi(yytext);
+                                yylval.i = atoi(yytext);
                                 return CONSTANT;
                             }
 "$"{L}                      {
-                                yylval = getReg(yytext[1]);
+                                yylval.i = getReg(yytext[1]);
                                 return REG;
                             }
 
@@ -56,7 +56,7 @@ int getReg(char);
 ":"                         { return ':';                                       }
 
 (\"([^\"])*\")              {
-                                yylval = yytext;
+                                yylval.s = yytext;
                                 return TEXT;
                             }
 
