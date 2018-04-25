@@ -34,6 +34,7 @@ int getReg(char);
                                 return '('; // ) for dummy purpose
                             }
 ")"                         { return ')';                                       }
+":"                         { return ':';                                       }
 
 {H}+[#]                     {
                                 yylval.i = hexToDec(yytext);
@@ -52,10 +53,7 @@ int getReg(char);
 [eE][lL]                    { return EL;                                        }
 [rR][pP]                    { return RP;                                        }
 
-"\""                        { return DOUBLEQUOTE;                               }
-":"                         { return ':';                                       }
-
-(\"([^\"])*\")              {
+"\""([^\"])*"\""            {
                                 yylval.s = yytext;
                                 return TEXT;
                             }
@@ -65,7 +63,7 @@ int getReg(char);
 \t                          { return TAB;                                       }
 \n                          {
                                 yylineno++;
-                                return NEWLINE;
+                                return NL;
                             }
 
 <<EOF>>                     { return END_OF_FILE;                               }

@@ -11,4 +11,4 @@ bison: comp.y
 	bison -v -d comp.y
 
 clean:
-	rm comp.tab.c comp.tab.h lex.yy.c comp
+	rm comp.tab.c comp.tab.h lex.yy.c comp comp.output

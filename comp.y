@@ -4,14 +4,23 @@
 #include <stdlib.h>
 #include <math.h>
 
-void yyerror(char *s);
+void yyerror(char *);
 
-// yylval of CMP token
-enum {NOTEQ = 0, EQ, GREATER, LESS, GREATEREQ, LESSEQ};
+typedef struct block {
+    struct block **back;
+
+    int type;               // 0 = if, 1 = else, 2 = repeat
+    int id;
+    // int level;
+} block_t;
 
 // register $A - $z
 // TODO: remove this when convert to asm
 int reg[52] = {0};
+
+// int indent_level = 0;
+block_t **blocks = NULL;
+int cond_id = 0, loop_id = 0;
 
 %}
 
@@ -23,10 +32,11 @@ int reg[52] = {0};
 %start file
 
 %token <i>  CONSTANT REG CMP
-%token <s>  TEXT NEWLINE
-%token      LEFT_ARROW RIGHT_ARROW IF EL RP DOUBLEQUOTE TAB END_OF_FILE
+%token <s>  TEXT NL
+%token      LEFT_ARROW RIGHT_ARROW IF EL RP DOUBLE_QUOTE TAB
+%token      END_OF_FILE 0
 
-%type <i>   exp hex
+%type <i>   exp hex tab
 %type <s>   text statement assignexp printexp specexp
 
 %left                                   '+' '-'
@@ -41,29 +51,29 @@ file:
 ;
 
 line:
-  statement
-| line NEWLINE statement                {}
-| line error NEWLINE statement          {
+  %empty
+| tab statement
+| line NL tab statement                 {}
+| line error NL tab statement           {
                                             YYABORT;
                                         }
 ;
 
+tab:
+  %empty                                { $$ = 0;                                       }
+| tab TAB                               { $$ = $1 + 1;                                  }
+;
+
 statement:
-  %empty
-| exp                                   { printf("EXP: %d\n", $1);                        }
+  exp                                   { printf("EXP: %d\n", $1);                      }
 | assignexp
 | printexp
 | specexp
 ;
 
-inside:
-  %empty
-| inside TAB statement
-;
-
 text:
   %empty                                { $$ = 0;                                       }
-| TEXT                                  { $$ = $1;                                      }
+| DOUBLE_QUOTE TEXT DOUBLE_QUOTE        { $$ = $2;                                      }
 ;
 
 hex:
@@ -126,14 +136,37 @@ assignexp:
                                         }
 ;
 
-elseexp:
-  %empty
-| EL ':' NEWLINE inside
-;
-
 specexp:
-  IF '(' exp CMP exp ')' ':' NEWLINE inside elseexp { if ($3 == $5) printf("if\n"); }
-| RP '(' exp '|' exp ')' ':' NEWLINE inside    { printf("repeat %d -> %d:\n", $3, $5);         }
+  IF '(' exp CMP exp ')' ':'            {
+                                            block_t *block = (block_t *) malloc(sizeof(block_t));
+                                            block->back = blocks;
+                                            block->type = 0;
+                                            block->id = cond_id++;
+                                            // block->level = ++indent_level;
+
+                                            blocks = &block;
+                                            printf("if\n");
+                                        }
+| EL ':'                                {
+                                            block_t *block = (block_t *) malloc(sizeof(block_t));
+                                            block->back = blocks;
+                                            block->type = 1;
+                                            block->id = cond_id++;
+                                            // block->level = ++indent_level;
+
+                                            blocks = &block;
+                                            printf("else\n");
+                                        }
+| RP '(' exp '|' exp ')' ':'            {
+                                            block_t *block = (block_t *) malloc(sizeof(block_t));
+                                            block->back = blocks;
+                                            block->type = 2;
+                                            block->id = loop_id++;
+                                            // block->level = ++indent_level;
+
+                                            blocks = &block;
+                                            printf("repeat %d -> %d:\n", $3, $5);
+                                        }
 ;
 
 %%
