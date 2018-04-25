@@ -50,8 +50,8 @@ int getReg(char);
                             }
 
 [iI][fF]                    { return IF;                                        }
-[eE][lL]                    { return EL;                                        }
-[rR][pP]                    { return RP;                                        }
+[eE][lL]                    { return ELSE;                                      }
+[rR][pP]                    { return REPEAT;                                    }
 
 "\""([^\"])*"\""            {
                                 yylval.s = yytext;

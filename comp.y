@@ -33,7 +33,7 @@ int cond_id = 0, loop_id = 0;
 
 %token <i>  CONSTANT REG CMP
 %token <s>  TEXT NL
-%token      LEFT_ARROW RIGHT_ARROW IF EL RP DOUBLE_QUOTE TAB
+%token      LEFT_ARROW RIGHT_ARROW IF ELSE REPEAT DOUBLE_QUOTE TAB
 %token      END_OF_FILE 0
 
 %type <i>   exp hex tab
@@ -147,7 +147,7 @@ specexp:
                                             blocks = &block;
                                             printf("if\n");
                                         }
-| EL ':'                                {
+| ELSE ':'                              {
                                             block_t *block = (block_t *) malloc(sizeof(block_t));
                                             block->back = blocks;
                                             block->type = 1;
@@ -157,7 +157,7 @@ specexp:
                                             blocks = &block;
                                             printf("else\n");
                                         }
-| RP '(' exp '|' exp ')' ':'            {
+| REPEAT '(' exp '|' exp ')' ':'        {
                                             block_t *block = (block_t *) malloc(sizeof(block_t));
                                             block->back = blocks;
                                             block->type = 2;
