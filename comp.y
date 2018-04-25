@@ -5,6 +5,7 @@
 #include <math.h>
 
 void yyerror(char *);
+void create_block(int);
 
 typedef struct block {
     struct block **back;
@@ -138,33 +139,15 @@ assignexp:
 
 specexp:
   IF '(' exp CMP exp ')' ':'            {
-                                            block_t *block = (block_t *) malloc(sizeof(block_t));
-                                            block->back = blocks;
-                                            block->type = 0;
-                                            block->id = cond_id++;
-                                            // block->level = ++indent_level;
-
-                                            blocks = &block;
+                                            create_block(0);
                                             printf("if\n");
                                         }
 | ELSE ':'                              {
-                                            block_t *block = (block_t *) malloc(sizeof(block_t));
-                                            block->back = blocks;
-                                            block->type = 1;
-                                            block->id = cond_id++;
-                                            // block->level = ++indent_level;
-
-                                            blocks = &block;
+                                            create_block(1);
                                             printf("else\n");
                                         }
 | REPEAT '(' exp '|' exp ')' ':'        {
-                                            block_t *block = (block_t *) malloc(sizeof(block_t));
-                                            block->back = blocks;
-                                            block->type = 2;
-                                            block->id = loop_id++;
-                                            // block->level = ++indent_level;
-
-                                            blocks = &block;
+                                            create_block(2);
                                             printf("repeat %d -> %d:\n", $3, $5);
                                         }
 ;
@@ -173,4 +156,17 @@ specexp:
 
 void yyerror(char *s) {
     fprintf(stderr, "! ERROR: %s\n", s);
+}
+
+void create_block(int type) {
+    block_t *block = (block_t *) malloc(sizeof(block_t));
+    block->back = blocks;
+    block->type = type;
+    if (type >= 0 && type <= 1)
+        block->id = cond_id++;
+    else if (type == 2)
+        block->id = loop_id++;
+    // block->level = ++indent_level;
+
+    blocks = &block;
 }
