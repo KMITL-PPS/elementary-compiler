@@ -68,6 +68,8 @@ int getReg(char);
                                 return NEWLINE;
                             }
 
+<<EOF>>                     { return END_OF_FILE;                               }
+
 .                           { return yytext[0];                                 }
 
 %%

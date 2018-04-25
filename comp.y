@@ -24,10 +24,10 @@ int reg[52] = {0};
 
 %token <i>  CONSTANT REG CMP
 %token <s>  TEXT NEWLINE
-%token      LEFT_ARROW RIGHT_ARROW IF EL RP DOUBLEQUOTE TAB
+%token      LEFT_ARROW RIGHT_ARROW IF EL RP DOUBLEQUOTE TAB END_OF_FILE
 
 %type <i>   exp hex
-%type <s>   text line assignexp printexp specexp
+%type <s>   text statement assignexp printexp specexp
 
 %left                                   '+' '-'
 %left                                   '*' '/' '%'
@@ -37,27 +37,28 @@ int reg[52] = {0};
 %%
 
 file:
-  input EOF
+  line END_OF_FILE
 ;
 
-input:
-  input line                            {}
-| input error line                      {
+line:
+  statement
+| line NEWLINE statement                {}
+| line error NEWLINE statement          {
                                             YYABORT;
                                         }
 ;
 
-line:
-  NEWLINE
-| exp NEWLINE                           { printf("EXP: %d\n", $1);                        }
-| assignexp NEWLINE
-| printexp NEWLINE
+statement:
+  %empty
+| exp                                   { printf("EXP: %d\n", $1);                        }
+| assignexp
+| printexp
 | specexp
 ;
 
 inside:
   %empty
-| inside TAB line
+| inside TAB statement
 ;
 
 text:
@@ -128,6 +129,7 @@ assignexp:
 elseexp:
   %empty
 | EL ':' NEWLINE inside
+;
 
 specexp:
   IF '(' exp CMP exp ')' ':' NEWLINE inside elseexp { if ($3 == $5) printf("if\n"); }

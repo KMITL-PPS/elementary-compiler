@@ -6,3 +6,4 @@ comp.tab.h
 comp.tab.c
 comp
 *.txt
+*.output
