@@ -42,6 +42,11 @@ line:
 | specexp
 ;
 
+inside:
+  %empty
+| inside TAB line
+;
+
 text:
   %empty                                { $$ = 0;                                       }
 | TEXT                                  { $$ = $1;                                      }
@@ -86,7 +91,7 @@ exp:
 printexp:
   exp RIGHT_ARROW hex                   {
                                             if ($3) {
-                                                printf("%x", $1);
+                                                printf("%X", $1);
                                             } else {
                                                 printf("%d", $1);
                                             }
@@ -108,8 +113,7 @@ assignexp:
 ;
 
 specexp:
-  IF '(' exp CMP exp ')' ':' NEWLINE    { printf("if %d C[%d] %d:\n", $3, $4, $5);    }
-| EL ':' NEWLINE                        { printf("else:\n");                            }
+  IF '(' exp CMP exp ')' ':' NEWLINE inside { if ($3 == $5) printf("if\n"); }
 | RP '(' exp '|' exp ')' ':' NEWLINE    { printf("repeat %d -> %d:\n", $3, $5);         }
 ;
 
