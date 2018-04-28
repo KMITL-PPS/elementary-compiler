@@ -54,7 +54,7 @@ int getReg(char);
 [rR][pP]                    { return REPEAT;                                    }
 
 "\""([^\"])*"\""            {
-                                yylval.s = yytext;
+                                yylval.s = strdup(yytext);
                                 return TEXT;
                             }
 

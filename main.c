@@ -4,7 +4,9 @@
 char *get_file_name(char *);
 void print(char *, char *);
 void print_label(char *);
-void print_ln(void);
+void print_ins(char *);
+void print_syscall(void);
+void println(char *);
 void print_space(int);
 
 extern int yyparse();
@@ -28,9 +30,9 @@ int main(int argc, char **argv)
 
 	// append some assembly header code
 	print("global", "_start");
-	print_ln();
+	println("");
 	print("section", ".text");
-	print_label("_start");
+	println("_start:");
 
 	yyparse();
 
@@ -49,20 +51,26 @@ char *get_file_name(char *file)
 
 void print(char *ins, char *param)
 {
-	print_space(16);
-	fprintf(fp, "%-7s", ins);
-	print_space(1);
+	print_ins(ins);
 	fprintf(fp, "%s\n", param);
 }
 
-void print_label(char *name)
+void print_ins(char *ins)
 {
-	fprintf(fp, "%s:\n", name);
+	print_space(16);
+	fprintf(fp, "%-7s", ins);
+	print_space(1);
 }
 
-void print_ln()
+void print_syscall()
 {
-	fprintf(fp, "\n");
+	print_space(16);
+	fprintf(fp, "syscall\n");
+}
+
+void println(char *text)
+{
+	fprintf(fp, "%s\n", text);
 }
 
 void print_space(int n)

@@ -2,28 +2,44 @@
 %{
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 
 void yyerror(char *);
 void create_block(int);
 int is_if_block();
+int create_text(char *);
 
+extern void print(char *, char *);
+extern void print_label(char *);
+extern void print_ins(char *);
+extern void print_syscall(void);
+extern void println(char *);
+extern void print_space(int);
 extern FILE *fp;
 
-typedef struct block {
-    struct block *back;
+typedef struct block_t {
+    struct block_t *back;
 
     int type;               // 0 = if, 1 = else, 2 = repeat
     int id;
     // int right;
 } block_t;
 
+typedef struct text_t {
+    int id;
+    char *msg;
+
+    struct text_t *next;
+} text_t;
+
 // register $A - $z
-// TODO: remove this when convert to asm
+// TODO: reMOVe this when convert to asm
 int reg[52] = {0};
 
 int indent_level = 0;
 block_t *blocks = NULL;
+text_t *texts = NULL;
 int cond_id = 0, loop_id = 0;
 
 %}
@@ -51,7 +67,11 @@ int cond_id = 0, loop_id = 0;
 %%
 
 file:
-  line END_OF_FILE
+  line END_OF_FILE                      {
+                                            print("MOV", "RAX, 60");
+                                            print("MOV", "RDI, 0");
+                                            print_syscall();
+                                        }
 ;
 
 line:
@@ -77,7 +97,7 @@ statement:
 
 text:
   %empty                                { $$ = 0;                                       }
-| DOUBLE_QUOTE TEXT DOUBLE_QUOTE        { $$ = $2;                                      }
+| TEXT                                  { $$ = $1;                                      }
 ;
 
 hex:
@@ -118,15 +138,30 @@ exp:
 
 printexp:
   exp RIGHT_ARROW hex                   {
+                                            // print HEX
                                             if ($3) {
                                                 printf("%X", $1);
+                                            // print DEC
                                             } else {
                                                 printf("%d", $1);
                                             }
                                         }
 | text RIGHT_ARROW                      {
-                                            if ($1) {
-                                                printf("%s", $1);
+                                            // TODO: ->>  |  - > >   println()
+                                            // print TEXT
+                                            if ($1) { // TODO: recheck this
+                                                int id = create_text($1);
+
+                                                print("MOV", "RAX, 1");
+                                                print("MOV", "RDI, 1");
+                                                print_ins("MOV");
+                                                fprintf(fp, "RSI, t%d\n", id);
+                                                print_ins("MOV");
+                                                fprintf(fp, "RDX, %lu\n", strlen($1) - 2);
+                                                print_syscall();
+                                                println("");
+                                                printf("-%s-", $1);
+                                            // print NEWLINE
                                             } else {
                                                 printf("\n");
                                             }
@@ -182,4 +217,21 @@ void create_block(int type) {
 
 int is_if_block() {
     return (blocks->type == 0 ? 1 : 0);
+}
+
+int create_text(char *msg) {
+    int id;
+    if (texts == NULL) {
+        texts = (text_t *) malloc(sizeof(text_t));
+        id = 1;
+    } else {
+        texts->next = (text_t *) malloc(sizeof(text_t));
+        id = texts->id + 1;
+        texts = texts->next;
+    }
+    texts->id = id;
+    texts->msg = msg;
+    texts->next = NULL;
+
+    return id;
 }
