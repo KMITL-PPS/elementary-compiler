@@ -7,3 +7,5 @@ comp.tab.c
 comp
 *.txt
 *.output
+*.asm
+*.o

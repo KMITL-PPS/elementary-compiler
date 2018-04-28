@@ -6,21 +6,24 @@
 
 void yyerror(char *);
 void create_block(int);
+int is_if_block();
+
+extern FILE *fp;
 
 typedef struct block {
-    struct block **back;
+    struct block *back;
 
     int type;               // 0 = if, 1 = else, 2 = repeat
     int id;
-    // int level;
+    // int right;
 } block_t;
 
 // register $A - $z
 // TODO: remove this when convert to asm
 int reg[52] = {0};
 
-// int indent_level = 0;
-block_t **blocks = NULL;
+int indent_level = 0;
+block_t *blocks = NULL;
 int cond_id = 0, loop_id = 0;
 
 %}
@@ -143,8 +146,12 @@ specexp:
                                             printf("if\n");
                                         }
 | ELSE ':'                              {
-                                            create_block(1);
-                                            printf("else\n");
+                                            if (is_if_block()) {
+                                                create_block(1);
+                                                printf("else\n");
+                                            } else {
+                                                yyerror("unexpected else statement");
+                                            }
                                         }
 | REPEAT '(' exp '|' exp ')' ':'        {
                                             create_block(2);
@@ -168,5 +175,11 @@ void create_block(int type) {
         block->id = loop_id++;
     // block->level = ++indent_level;
 
-    blocks = &block;
+    indent_level++;
+
+    blocks = block;
+}
+
+int is_if_block() {
+    return (blocks->type == 0 ? 1 : 0);
 }
