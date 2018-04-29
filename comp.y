@@ -5,10 +5,37 @@
 #include <string.h>
 #include <math.h>
 
+typedef struct block_t block_t;
+struct block_t {
+    block_t *back;
+
+    int type;               // 0 = if, 1 = else, 2 = repeat
+    int id;
+    // int right;
+} blocks;
+
+typedef struct text_t text_t;
+struct text_t {
+    int id;
+    char *msg;
+
+    struct text_t *next;
+} texts;
+
+typedef struct exp_t exp_t;
+struct exp_t {
+    int type;               // 0 = operator, 1 = immediate, 2 = register
+    long val;
+    int parent;             // 0 = left, 1 = right
+
+    struct exp_t *left, *right;
+} exps;
+
 void yyerror(char *);
 void create_block(int);
 int is_if_block();
 int create_text(char *);
+exp_t *create_exp(int, long);
 
 extern void print(char *, char *);
 extern void print_label(char *);
@@ -18,33 +45,17 @@ extern void println(char *);
 extern void print_space(int);
 extern FILE *fp;
 
-typedef struct block_t {
-    struct block_t *back;
-
-    int type;               // 0 = if, 1 = else, 2 = repeat
-    int id;
-    // int right;
-} block_t;
-
-typedef struct text_t {
-    int id;
-    char *msg;
-
-    struct text_t *next;
-} text_t;
-
 // register $A - $z
 // TODO: reMOVe this when convert to asm
 int reg[52] = {0};
 
 int indent_level = 0;
-block_t *blocks = NULL;
-text_t *texts = NULL;
 int cond_id = 0, loop_id = 0;
 
 %}
 
 %union {
+    struct exp_t *e;
     int i;
     char *s;
 }
@@ -61,7 +72,8 @@ int cond_id = 0, loop_id = 0;
 %token      TAB
 %token      END_OF_FILE 0
 
-%type <i>   exp hex tab
+%type <e>   exp
+%type <i>   hex tab
 %type <s>   text statement assignexp printexp specexp
 
 %left                                   '+' '-'
@@ -131,8 +143,8 @@ hex:
 ;
 
 exp:
-  CONSTANT
-| REG                                   { $$ = reg[$1];                                 }
+  CONSTANT                              { $$ = create_exp(1, (long) $1);                }
+| REG                                   { $$ = create_exp(2, (long) $1);                }
 | exp '+' exp                           { $$ = $1 + $3;                                 }
 | exp '-' exp                           { $$ = $1 - $3;                                 }
 | exp '*' exp                           { $$ = $1 * $3;                                 }
@@ -267,4 +279,14 @@ int create_text(char *msg) {
     t->next = NULL;
 
     return t->id;
+}
+
+exp_t *create_exp(int type, long val) {
+    exp_t *exp = (exp_t *) malloc(sizeof(exp_t));
+    exp->type = type;
+    exp->val = val;
+    exp->parent = -1;
+    exp->left = exp->right = NULL;
+
+    return exp;
 }
