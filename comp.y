@@ -51,9 +51,14 @@ int cond_id = 0, loop_id = 0;
 
 %start file
 
-%token <i>  CONSTANT REG CMP
+%token <i>  CONSTANT REG
 %token <s>  TEXT NL
-%token      LEFT_ARROW RIGHT_ARROW IF ELSE REPEAT DOUBLE_QUOTE TAB
+%token      '(' ')'
+%token      '^' NEG '*' '/' '%' '+' '-'
+%token <i>  CMP
+%token      LEFT_ARROW RIGHT_ARROW
+%token      IF ELSE REPEAT
+%token      TAB
 %token      END_OF_FILE 0
 
 %type <i>   exp hex tab
@@ -68,9 +73,30 @@ int cond_id = 0, loop_id = 0;
 
 file:
   line END_OF_FILE                      {
+                                            // append exit to assembly
                                             print("MOV", "RAX, 60");
                                             print("MOV", "RDI, 0");
                                             print_syscall();
+                                            println("");
+
+                                            // data section
+                                            print("section", ".data");
+
+                                            // append register data ($rA - $rz)
+                                            fprintf(fp, "reg             DQ      52 DUP(0)\n");
+                                            println("");
+
+                                            // append newline
+                                            fprintf(fp, "nl              DB      10\n");
+                                            println("");
+
+                                            // append text data
+                                            text_t *t;
+                                            for (t = texts; t != NULL; t = t->next) {
+                                                fprintf(fp, "t%-14d DB      ", t->id);
+                                                fprintf(fp, "%s\n", t->msg);
+                                                // TODO: print NEWLINE?
+                                            }
                                         }
 ;
 
@@ -89,8 +115,7 @@ tab:
 ;
 
 statement:
-  exp                                   { printf("EXP: %d\n", $1);                      }
-| assignexp
+  assignexp
 | printexp
 | specexp
 ;
@@ -160,10 +185,15 @@ printexp:
                                                 fprintf(fp, "RDX, %lu\n", strlen($1) - 2);
                                                 print_syscall();
                                                 println("");
-                                                printf("-%s-", $1);
+
                                             // print NEWLINE
                                             } else {
-                                                printf("\n");
+                                                print("MOV", "RAX, 1");
+                                                print("MOV", "RDI, 1");
+                                                print("MOV", "RSI, nl");
+                                                print("MOV", "RDX, 1");
+                                                print_syscall();
+                                                println("");
                                             }
                                         }
 ;
@@ -220,18 +250,21 @@ int is_if_block() {
 }
 
 int create_text(char *msg) {
-    int id;
-    if (texts == NULL) {
-        texts = (text_t *) malloc(sizeof(text_t));
-        id = 1;
-    } else {
-        texts->next = (text_t *) malloc(sizeof(text_t));
-        id = texts->id + 1;
-        texts = texts->next;
-    }
-    texts->id = id;
-    texts->msg = msg;
-    texts->next = NULL;
+    text_t *t = texts;
 
-    return id;
+    if (t == NULL) {
+        texts = (text_t *) malloc(sizeof(text_t));
+        t = texts;
+        t->id = 0;
+    } else {
+        while (t->next != NULL)
+            t = t->next;
+        t->next = (text_t *) malloc(sizeof(text_t));
+        t->next->id = t->id + 1;
+        t = t->next;
+    }
+    t->msg = strdup(msg);
+    t->next = NULL;
+
+    return t->id;
 }
