@@ -1,11 +1,7 @@
-.vscode
-.DS_Store
+*
 
-lex.yy.c
-comp.tab.h
-comp.tab.c
-comp
-*.txt
-*.output
-*.asm
-*.o
+!.gitignore
+!Makefile
+!comp.flex
+!comp.y
+!main.c
