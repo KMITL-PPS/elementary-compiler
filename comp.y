@@ -12,7 +12,7 @@ struct block_t {
     int type;               // 0 = if, 1 = else, 2 = repeat
     int id;
     // int right;
-} blocks;
+} *blocks;
 
 typedef struct text_t text_t;
 struct text_t {
@@ -20,22 +20,22 @@ struct text_t {
     char *msg;
 
     struct text_t *next;
-} texts;
+} *texts;
 
 typedef struct exp_t exp_t;
 struct exp_t {
     int type;               // 0 = operator, 1 = immediate, 2 = register
     long val;
-    int parent;             // 0 = left, 1 = right
+    int pos;               // 0 = left, 1 = right
 
     struct exp_t *left, *right;
-} exps;
+} *exps;
 
 void yyerror(char *);
 void create_block(int);
 int is_if_block();
 int create_text(char *);
-exp_t *create_exp(int, long);
+exp_t *create_exp(int, long, exp_t *, exp_t *);
 
 extern void print(char *, char *);
 extern void print_label(char *);
@@ -57,12 +57,14 @@ int cond_id = 0, loop_id = 0;
 %union {
     struct exp_t *e;
     int i;
+    long l;
     char *s;
 }
 
 %start file
 
-%token <i>  CONSTANT REG
+%token <i>  REG
+%token <l>  CONSTANT
 %token <s>  TEXT NL
 %token      '(' ')'
 %token      '^' NEG '*' '/' '%' '+' '-'
@@ -122,8 +124,8 @@ line:
 ;
 
 tab:
-  %empty                                { $$ = 0;                                       }
-| tab TAB                               { $$ = $1 + 1;                                  }
+  %empty                                {   $$ = 0;                                     }
+| tab TAB                               {   $$ = $1 + 1;                                }
 ;
 
 statement:
@@ -133,44 +135,67 @@ statement:
 ;
 
 text:
-  %empty                                { $$ = 0;                                       }
-| TEXT                                  { $$ = $1;                                      }
+  %empty                                {   $$ = 0;                                     }
+| TEXT                                  {   $$ = $1;                                    }
 ;
 
 hex:
-  %empty                                { $$ = 0;                                       }
-| '#'                                   { $$ = 1;                                       }
+  %empty                                {   $$ = 0;                                     }
+| '#'                                   {   $$ = 1;                                     }
 ;
 
 exp:
-  CONSTANT                              { $$ = create_exp(1, (long) $1);                }
-| REG                                   { $$ = create_exp(2, (long) $1);                }
-| exp '+' exp                           { $$ = $1 + $3;                                 }
-| exp '-' exp                           { $$ = $1 - $3;                                 }
-| exp '*' exp                           { $$ = $1 * $3;                                 }
+  CONSTANT                              {   $$ = create_exp(1, $1, NULL, NULL);         }
+| REG                                   {   $$ = create_exp(2, $1, NULL, NULL);         }
+| exp '+' exp                           {
+                                            $1->pos = 0;
+                                            $3->pos = 1;
+                                            $$ = create_exp(0, (long) '+', $1, $3);
+                                        }
+| exp '-' exp                           {
+                                            $1->pos = 0;
+                                            $3->pos = 1;
+                                            $$ = create_exp(0, (long) '-', $1, $3);
+                                        }
+| exp '*' exp                           {
+                                            $1->pos = 0;
+                                            $3->pos = 1;
+                                            $$ = create_exp(0, (long) '*', $1, $3);
+                                        }
 | exp '/' exp                           {
-                                            if ($3)
-                                                $$ = $1 / $3;
-                                            else {
+                                            if ($3) {
+                                                $1->pos = 0;
+                                                $3->pos = 1;
+                                                $$ = create_exp(0, (long) '/', $1, $3);
+                                            } else {
                                                 yyerror("division by zero");
                                                 YYABORT;
                                             }
                                         }
 | exp '%' exp                           {
-                                            if ($3)
-                                                $$ = $1 % $3;
-                                            else {
+                                            if ($3) {
+                                                $1->pos = 0;
+                                                $3->pos = 1;
+                                                $$ = create_exp(0, (long) '%', $1, $3);
+                                            } else {
                                                 yyerror("modulo by zero");
                                                 YYABORT;
                                             }
                                         }
-| '-' exp  %prec NEG                    { $$ = -$2;                                     }
+| '-' exp  %prec NEG                    {
+                                            $2->pos = 0;
+                                            $$ = create_exp(0, (long) '~', $2, NULL);
+                                        }
 | '+' exp                               {
                                             yyerror("syntax error");
                                             YYERROR;
                                         }
-| exp '^' exp                           { $$ = pow($1, $3);                             }
-| '(' exp ')'                           { $$ = $2;                                      }
+| exp '^' exp                           {
+                                            $1->pos = 0;
+                                            $3->pos = 1;
+                                            $$ = create_exp(0, (long) '^', $1, $3);
+                                        }
+| '(' exp ')'                           {   $$ = $2;                                    }
 ;
 
 printexp:
@@ -180,7 +205,8 @@ printexp:
                                                 printf("%X", $1);
                                             // print DEC
                                             } else {
-                                                printf("%d", $1);
+                                                exps = $1;
+                                                // printf("%d", $1);
                                             }
                                         }
 | text RIGHT_ARROW                      {
@@ -281,12 +307,13 @@ int create_text(char *msg) {
     return t->id;
 }
 
-exp_t *create_exp(int type, long val) {
+exp_t *create_exp(int type, long val, exp_t *left, exp_t *right) {
     exp_t *exp = (exp_t *) malloc(sizeof(exp_t));
     exp->type = type;
     exp->val = val;
-    exp->parent = -1;
-    exp->left = exp->right = NULL;
+    exp->pos = -1;
+    exp->left = left;
+    exp->right = right;
 
     return exp;
 }

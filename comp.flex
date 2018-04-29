@@ -8,7 +8,7 @@ H               [a-fA-F0-9]
 #include <string.h>
 #include "comp.tab.h"
 
-int hexToDec(char *);
+long hexToDec(char *);
 int getReg(char);
 %}
 
@@ -37,11 +37,11 @@ int getReg(char);
 ":"                         { return ':';                                       }
 
 {H}+[#]                     {
-                                yylval.i = hexToDec(yytext);
+                                yylval.l = hexToDec(yytext);
                                 return CONSTANT;
                             }
 {D}+                        {
-                                yylval.i = atoi(yytext);
+                                yylval.l = atoi(yytext);
                                 return CONSTANT;
                             }
 "$"{L}                      {
@@ -72,10 +72,11 @@ int getReg(char);
 
 %%
 
-int hexToDec(char *s)
+long hexToDec(char *s)
 {
     // } for dummy purpose
-    int i = 0, value = 0;
+    int i = 0;
+    long value = 0;
     for (i = 0; s[i] != 'h' && s[i] != 'H'; i++) {
         value *= 16;
         if (s[i] >= '0' && s[i] <= '9') {
