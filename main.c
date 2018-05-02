@@ -65,7 +65,7 @@ void print_ins(char *ins)
 void print_syscall()
 {
 	print_space(16);
-	fprintf(fp, "syscall\n");
+	fprintf(fp, "syscall\n\n");
 }
 
 void println(char *text)

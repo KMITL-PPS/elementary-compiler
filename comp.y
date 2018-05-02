@@ -33,9 +33,12 @@ struct exp_t {
 
 void yyerror(char *);
 void create_block(int);
-int is_if_block();
+int is_if_block(void);
 int create_text(char *);
 exp_t *create_exp(int, long, exp_t *, exp_t *);
+void print_exp(exp_t *);
+void print_dec(void);
+void print_hex(void);
 
 extern void print(char *, char *);
 extern void print_label(char *);
@@ -50,7 +53,7 @@ extern FILE *fp;
 int reg[52] = {0};
 
 int indent_level = 0;
-int cond_id = 0, loop_id = 0;
+int cond_id = 0, loop_id = 0, pow_id = 0;
 
 %}
 
@@ -88,21 +91,38 @@ int cond_id = 0, loop_id = 0;
 file:
   line END_OF_FILE                      {
                                             // append exit to assembly
-                                            print("MOV", "RAX, 60");
-                                            print("MOV", "RDI, 0");
+                                            print("MOV", "RAX, SYS_EXIT");
+                                            print("MOV", "RDI, EXIT_CODE");
                                             print_syscall();
+                                            println("");
+
+                                            // print functions
+                                            print_dec();
+                                            println("");
+                                            print_hex();
                                             println("");
 
                                             // data section
                                             print("section", ".data");
 
-                                            // append register data ($rA - $rz)
-                                            fprintf(fp, "reg             DQ      52 DUP(0)\n");
-                                            println("");
+                                            // append constant variable
+                                            println("SYS_WRITE       EQU     1");
+                                            println("STD_OUT         EQU     1");
+                                            println("SYS_EXIT        EQU     60");
+                                            println("EXIT_CODE       EQU     0\n");
+
+                                            // append register data ($A - $z)
+                                            println("reg             TIMES   52 DQ 0\n");
 
                                             // append newline
-                                            fprintf(fp, "nl              DB      10\n");
+                                            println("nl              DB      0xA");
+
+                                            // bss section
                                             println("");
+                                            print("section", ".bss");
+
+                                            // append temp of print data
+                                            println("number          RESB    20");
 
                                             // append text data
                                             text_t *t;
@@ -146,27 +166,27 @@ hex:
 
 exp:
   CONSTANT                              {   $$ = create_exp(1, $1, NULL, NULL);         }
-| REG                                   {   $$ = create_exp(2, $1, NULL, NULL);         }
+| REG                                   {   $$ = create_exp(2, $1 * 8, NULL, NULL);     }
 | exp '+' exp                           {
                                             $1->pos = 0;
                                             $3->pos = 1;
-                                            $$ = create_exp(0, (long) '+', $1, $3);
+                                            $$ = create_exp(0, '+', $1, $3);
                                         }
 | exp '-' exp                           {
                                             $1->pos = 0;
                                             $3->pos = 1;
-                                            $$ = create_exp(0, (long) '-', $1, $3);
+                                            $$ = create_exp(0, '-', $1, $3);
                                         }
 | exp '*' exp                           {
                                             $1->pos = 0;
                                             $3->pos = 1;
-                                            $$ = create_exp(0, (long) '*', $1, $3);
+                                            $$ = create_exp(0, '*', $1, $3);
                                         }
 | exp '/' exp                           {
                                             if ($3) {
                                                 $1->pos = 0;
                                                 $3->pos = 1;
-                                                $$ = create_exp(0, (long) '/', $1, $3);
+                                                $$ = create_exp(0, '/', $1, $3);
                                             } else {
                                                 yyerror("division by zero");
                                                 YYABORT;
@@ -176,7 +196,7 @@ exp:
                                             if ($3) {
                                                 $1->pos = 0;
                                                 $3->pos = 1;
-                                                $$ = create_exp(0, (long) '%', $1, $3);
+                                                $$ = create_exp(0, '%', $1, $3);
                                             } else {
                                                 yyerror("modulo by zero");
                                                 YYABORT;
@@ -184,7 +204,7 @@ exp:
                                         }
 | '-' exp  %prec NEG                    {
                                             $2->pos = 0;
-                                            $$ = create_exp(0, (long) '~', $2, NULL);
+                                            $$ = create_exp(0, '~', $2, NULL);
                                         }
 | '+' exp                               {
                                             yyerror("syntax error");
@@ -193,53 +213,53 @@ exp:
 | exp '^' exp                           {
                                             $1->pos = 0;
                                             $3->pos = 1;
-                                            $$ = create_exp(0, (long) '^', $1, $3);
+                                            $$ = create_exp(0, '^', $1, $3);
                                         }
 | '(' exp ')'                           {   $$ = $2;                                    }
 ;
 
 printexp:
   exp RIGHT_ARROW hex                   {
-                                            // print HEX
-                                            if ($3) {
-                                                printf("%X", $1);
-                                            // print DEC
-                                            } else {
-                                                exps = $1;
-                                                // printf("%d", $1);
+                                            if ($3) {   // print HEX
+                                                print_exp($1);
+                                                print("CALL", "print_hex");
+                                                println("");
+                                            } else {    // print DEC
+                                                print_exp($1);
+                                                print("CALL", "print_dec");
+                                                println("");
                                             }
                                         }
 | text RIGHT_ARROW                      {
                                             // TODO: ->>  |  - > >   println()
-                                            // print TEXT
-                                            if ($1) { // TODO: recheck this
+                                            if ($1) {   // print TEXT
+                                                // TODO: recheck above
                                                 int id = create_text($1);
 
-                                                print("MOV", "RAX, 1");
-                                                print("MOV", "RDI, 1");
+                                                print("MOV", "RAX, SYS_WRITE");
+                                                print("MOV", "RDI, STD_OUT");
                                                 print_ins("MOV");
                                                 fprintf(fp, "RSI, t%d\n", id);
                                                 print_ins("MOV");
                                                 fprintf(fp, "RDX, %lu\n", strlen($1) - 2);
                                                 print_syscall();
-                                                println("");
 
                                             // print NEWLINE
                                             } else {
-                                                print("MOV", "RAX, 1");
-                                                print("MOV", "RDI, 1");
+                                                print("MOV", "RAX, SYS_WRITE");
+                                                print("MOV", "RDI, STD_OUT");
                                                 print("MOV", "RSI, nl");
                                                 print("MOV", "RDX, 1");
                                                 print_syscall();
-                                                println("");
                                             }
                                         }
 ;
 
 assignexp:
   REG LEFT_ARROW exp                    {
-                                            reg[$1] = $3;
-                                            printf("R[%d] = %d\n", $1, $3);
+                                            print_exp($3);
+                                            print_ins("MOV");
+                                            fprintf(fp, "[reg + %d], RAX\n\n", $1 * 8);
                                         }
 ;
 
@@ -316,4 +336,208 @@ exp_t *create_exp(int type, long val, exp_t *left, exp_t *right) {
     exp->right = right;
 
     return exp;
+}
+
+void print_exp(exp_t *exp) {
+    if (exp == NULL)
+        return;
+
+    if (exp->left != NULL)
+        print_exp(exp->left);
+    
+    if (exp->right != NULL)
+        print_exp(exp->right);
+
+    if (exp->type == 0) {           // operator
+        if (exp->val == '+') {
+            if (exp->pos == -1) {
+                print("MOV", "RAX, RCX");
+                print("ADD", "RAX, RDX");
+            } else if (exp->pos == 0) {
+                print("ADD", "RCX, RDX");
+            } else if (exp->pos == 1) {
+                print("ADD", "RDX, RCX");
+            }
+        } else if (exp->val == '-') {
+            if (exp->pos == -1) {
+                print("MOV", "RAX, RCX");
+                print("SUB", "RAX, RDX");
+            } else if (exp->pos == 0) {
+                print("SUB", "RCX, RDX");
+            } else if (exp->pos == 1) {
+                print("NEG", "RDX");
+                print("ADD", "RDX, RCX");
+            }
+        } else if (exp->val == '*') {
+            print("MOV", "RAX, RCX");
+            print("MUL", "RDX");
+            if (exp->pos == -1) {
+                // done
+            } else if (exp->pos == 0) {
+                print("MOV", "RCX, RAX");
+            } else if (exp->pos == 1) {
+                print("MOV", "RDX, RAX");
+            }
+        } else if (exp->val == '/') {
+            print("MOV", "RAX, RCX");
+            print("DIV", "RDX");
+            if (exp->pos == -1) {
+                // done
+            } else if (exp->pos == 0) {
+                print("MOV", "RCX, RAX");
+            } else if (exp->pos == 1) {
+                print("MOV", "RDX, RAX");
+            }
+        } else if (exp->val == '%') {
+            print("MOV", "RAX, RCX");
+            print("DIV", "RDX");
+            if (exp->pos == -1) {
+                print("MOV", "RAX, RDX");
+            } else if (exp->pos == 0) {
+                print("MOV", "RCX, RDX");
+            } else if (exp->pos == 1) {
+                // done
+            }
+        } else if (exp->val == '^') {
+            print("XOR", "RSI, RSI");
+            print("MOV", "RAX, 1");
+            print("MOV", "R9, RDX");
+
+            fprintf(fp, "pow%d:\n", pow_id);
+            print("MUL", "RCX");
+            print("INC", "RSI");
+
+            print("CMP", "RSI, R9");
+            print_ins("JL");
+            fprintf(fp, "pow%d\n", pow_id++);
+
+            if (exp->pos == -1) {
+                // done
+            } else if (exp->pos == 0) {
+                print("MOV", "RCX, RAX");
+            } else if (exp->pos == 1) {
+                print("MOV", "RDX, RAX");
+            }
+        } else if (exp->val == '~') {
+            print("NEG", "RCX");
+            if (exp->pos == -1) {
+                print("MOV", "RAX, RCX");
+            } else if (exp->pos == 0) {
+                // done
+            } else if (exp->pos == 1) {
+                print("MOV", "RDX, RCX");
+            }
+        println("");
+    } else if (exp->type == 1) {    // immediate
+        print_ins("MOV");
+        if (exp->pos == 0) {    // left arm
+            fprintf(fp, "RCX, %ld\n", exp->val);
+        } else if (exp->pos == 1) {                // right arm
+            fprintf(fp, "RDX, %ld\n", exp->val);
+        } else {
+            fprintf(fp, "RAX, %ld\n", exp->val);
+        }
+    } else if (exp->type == 2) {    // register
+        print_ins("MOV");
+        if (exp->pos == 0) {    // left arm
+            fprintf(fp, "RCX, [reg + %ld]\n", exp->val);
+        } else if (exp->pos == 1) {                // right arm
+            fprintf(fp, "RDX, [reg + %ld]\n", exp->val);
+        } else {                // center
+            fprintf(fp, "RAX, [reg + %ld]\n", exp->val);
+        }
+    }
+}
+
+void print_dec() {      // print RAX
+    println("print_dec:");
+
+    // resources
+    print("LEA", "R9, [number + 18]");
+    print("MOV", "R10, R9");
+    print("MOV", "RSI, 10");
+
+    // print newline
+    // print("MOV", "byte [R9], 10");
+    // print("DEC", "R9");
+
+    // check if RAX is negative
+    print("CMP", "RAX, 0");
+    print("JGE", "pd_lp");
+    print("MOV", "RCX, 1");
+    
+    // put last digit to stack
+    println("pd_lp:");
+    print("XOR", "RDX, RDX");
+    print("DIV", "RSI");
+    print("ADD", "RDX, 0x30");
+    print("MOV", "byte [R9], DL");
+    print("DEC", "R9");
+    // loop
+    print("TEST", "RAX, RAX");
+    print("JNZ", "pd_lp");
+
+    // calculate digit amount
+    print("SUB", "R10, R9");
+
+    // print
+    print("INC", "R9");
+    print("MOV", "RAX, SYS_WRITE");
+    print("MOV", "RDI, STD_OUT");
+    print("MOV", "RSI, R9");
+    print("MOV", "RDX, R10");
+    print_syscall();
+    print("RET", "");
+}
+
+void print_hex() {
+    println("print_hex:");
+
+    // resources
+    print("LEA", "R9, [number + 18]");
+    print("MOV", "R10, R9");
+    print("MOV", "RSI, 16");
+
+    // print newline
+    // print("MOV", "byte [R9], 10");
+    // print("DEC", "R9");
+
+    // check if RAX is negative
+    print("CMP", "RAX, 0");
+    print("JGE", "ph_lp");
+    print("MOV", "RCX, 1");
+    
+    // put last digit to stack
+    println("ph_lp:");
+    print("XOR", "RDX, RDX");
+    print("DIV", "RSI");
+
+    // condition to add ascii to reminder
+    print("CMP", "RDX, 10");
+    print("JL", "ph_str");
+    print("ADD", "RDX, 0x07");
+
+    println("ph_str:");
+    print("ADD", "RDX, 0x30");
+    print("MOV", "byte [R9], DL");
+    print("DEC", "R9");
+    // loop
+    print("TEST", "RAX, RAX");
+    print("JNZ", "ph_lp");
+
+    // print prefix
+    print("MOV", "word [R9 - 1], 0x7830");          // 0x
+    print("SUB", "R9, 2");
+
+    // calculate digit amount
+    print("SUB", "R10, R9");
+
+    // print
+    print("INC", "R9");
+    print("MOV", "RAX, SYS_WRITE");
+    print("MOV", "RDI, STD_OUT");
+    print("MOV", "RSI, R9");
+    print("MOV", "RDX, R10");
+    print_syscall();
+    print("RET", "");
 }
