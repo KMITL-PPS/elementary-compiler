@@ -14,27 +14,27 @@ int getReg(char);
 
 %%
 
-"<->>"                      { yylval.i = 4; return CMP;                        }
-"<<->"                      { yylval.i = 5; return CMP;                        }
-">-<"                       { yylval.i = 0; return CMP;                        }
-"<->"                       { yylval.i = 1; return CMP;                        }
+"<->>"                      {   yylval.i = 4; return CMP;                        }
+"<<->"                      {   yylval.i = 5; return CMP;                        }
+">-<"                       {   yylval.i = 0; return CMP;                        }
+"<->"                       {   yylval.i = 1; return CMP;                        }
 
-"<-"                        { return LEFT_ARROW;                                }
-"->"                        { return RIGHT_ARROW;                               }
+"<-"                        {   return LEFT_ARROW;                               }
+"->"                        {   return RIGHT_ARROW;                              }
 
-">"                         { yylval.i = 2; return CMP;                        }
-"<"                         { yylval.i = 3; return CMP;                        }
+">"                         {   yylval.i = 2; return CMP;                        }
+"<"                         {   yylval.i = 3; return CMP;                        }
 
-"+"                         { return '+';                                       }
-"-"                         { return '-';                                       }
-"*"                         { return '*';                                       }
-"/"                         { return '/';                                       }
-"%"                         { return '%';                                       }
+"+"                         {   return '+';                                      }
+"-"                         {   return '-';                                      }
+"*"                         {   return '*';                                      }
+"/"                         {   return '/';                                      }
+"%"                         {   return '%';                                      }
 "("                         {
                                 return '('; // ) for dummy purpose
                             }
-")"                         { return ')';                                       }
-":"                         { return ':';                                       }
+")"                         {   return ')';                                      }
+":"                         {   return ':';                                      }
 
 {H}+[#]                     {
                                 yylval.l = hexToDec(yytext);
@@ -49,26 +49,26 @@ int getReg(char);
                                 return REG;
                             }
 
-[iI][fF]                    { return IF;                                        }
-[eE][lL]                    { return ELSE;                                      }
-[rR][pP]                    { return REPEAT;                                    }
+[iI][fF]                    {   return IF;                                       }
+[eE][lL]                    {   return ELSE;                                     }
+[rR][pP]                    {   return REPEAT;                                   }
 
 "\""([^\"])*"\""            {
                                 yylval.s = strdup(yytext);
                                 return TEXT;
                             }
 
-\t                          { return TAB;                                       }
+(\t)                        {   return TAB;                                      }
 \n                          {
                                 yylineno++;
                                 return NL;
                             }
 
-<<EOF>>                     { return END_OF_FILE;                               }
+<<EOF>>                     {   return END_OF_FILE;                              }
 
-[ \v\f]                     { /* ignore whitespace */                           }
+[ \v\f]                     {   /* ignore whitespace */                          }
 
-.                           { return yytext[0];                                 }
+.                           {   return yytext[0];                                }
 
 %%
 

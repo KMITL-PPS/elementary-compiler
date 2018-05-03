@@ -143,7 +143,6 @@ line:
 | stm
 | line NL stm
 | line error NL stm                     {
-    // printf("stmerror");
                                             YYABORT;
                                         }
 ;
