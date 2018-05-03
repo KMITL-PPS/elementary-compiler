@@ -58,8 +58,6 @@ int getReg(char);
                                 return TEXT;
                             }
 
-[ \v\f]                     { /* ignore whitespace */                           }
-
 \t                          { return TAB;                                       }
 \n                          {
                                 yylineno++;
@@ -67,6 +65,8 @@ int getReg(char);
                             }
 
 <<EOF>>                     { return END_OF_FILE;                               }
+
+[ \v\f]                     { /* ignore whitespace */                           }
 
 .                           { return yytext[0];                                 }
 
