@@ -12,6 +12,7 @@ struct block_t {
     int type;               // 0 = if, 1 = else, 2 = repeat
     int id;
     // int right;
+    int level;
 } *blocks;
 
 typedef struct text_t text_t;
@@ -32,11 +33,12 @@ struct exp_t {
 } *exps;
 
 void yyerror(char *);
-void create_block(int);
+int create_block(int);
 int is_if_block(void);
 int create_text(char *);
 exp_t *create_exp(int, long, exp_t *, exp_t *);
 void print_exp(exp_t *);
+void print_cmp(int);
 void print_dec(void);
 void print_hex(void);
 
@@ -265,8 +267,13 @@ assignexp:
 
 specexp:
   IF '(' exp CMP exp ')' ':'            {
-                                            create_block(0);
-                                            printf("if\n");
+                                            int id = create_block(0);
+
+                                            print_exp($3);
+                                            print("MOV", "RBX, RAX");
+                                            print_exp($5);
+
+                                            print_cmp($4);
                                         }
 | ELSE ':'                              {
                                             if (is_if_block()) {
@@ -288,7 +295,7 @@ void yyerror(char *s) {
     fprintf(stderr, "! ERROR: %s\n", s);
 }
 
-void create_block(int type) {
+int create_block(int type) {
     block_t *block = (block_t *) malloc(sizeof(block_t));
     block->back = blocks;
     block->type = type;
@@ -296,11 +303,10 @@ void create_block(int type) {
         block->id = cond_id++;
     else if (type == 2)
         block->id = loop_id++;
-    // block->level = ++indent_level;
-
-    indent_level++;
+    block->level = ++indent_level;
 
     blocks = block;
+    return block->id;
 }
 
 int is_if_block() {
@@ -447,6 +453,19 @@ void print_exp(exp_t *exp) {
             fprintf(fp, "RAX, [reg + %ld]\n", exp->val);
         }
     }
+}
+
+void print_cmp(int op) {
+    // PUSH
+    // CMP RBX, RAX
+
+    // if (operator == 0)
+    //     JNE   else%d , id
+
+    // }
+
+    // else%d:
+    // POP
 }
 
 void print_dec() {      // print RAX
