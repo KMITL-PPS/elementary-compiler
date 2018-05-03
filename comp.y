@@ -9,10 +9,11 @@ typedef struct block_t block_t;
 struct block_t {
     block_t *back;
 
-    int type;               // 0 = if, 1 = else, 2 = repeat
+    // int type;               // 0 = if, 1 = else, 2 = repeat
     int id;
     // int right;
     int level;
+    int els;                    // 0 = cannot else, 1 = can use else
 } *blocks;
 
 typedef struct text_t text_t;
@@ -33,8 +34,9 @@ struct exp_t {
 } *exps;
 
 void yyerror(char *);
-int create_block(int);
-int is_if_block(void);
+int create_block(void);
+int else_eligible(int);
+void check_stm(int, int);
 int create_text(char *);
 exp_t *create_exp(int, long, exp_t *, exp_t *);
 void print_exp(exp_t *);
@@ -79,8 +81,8 @@ int cond_id = 0, loop_id = 0, pow_id = 0;
 %token      END_OF_FILE 0
 
 %type <e>   exp
-%type <i>   hex tab
-%type <s>   text statement assignexp printexp specexp
+%type <i>   hex tab stm
+%type <s>   text
 
 %left                                   '+' '-'
 %left                                   '*' '/' '%'
@@ -115,8 +117,9 @@ file:
                                             // append register data ($A - $z)
                                             println("reg             TIMES   52 DQ 0\n");
 
-                                            // append newline
+                                            // append some useful characters
                                             println("nl              DB      0xA");
+                                            println("dash            DB      0x2D");
 
                                             // bss section
                                             println("");
@@ -140,6 +143,7 @@ line:
 | stm
 | line NL stm
 | line error NL stm                     {
+    // printf("stmerror");
                                             YYABORT;
                                         }
 ;
@@ -150,20 +154,25 @@ tab:
 ;
 
 stm:
-  tab statement                         {
-                                            while (tab < indent_level) {
-                                                fprintf(fp, "else%d:\n", blocks->id);
-                                                block_t *old = blocks;
-                                                blocks = blocks->back;
-                                                free(old);
+  tab assignexp                         {   check_stm($1, 0);                           }
+| tab printexp                          {   check_stm($1, 0);                           }
+| tab ifexp                             {   check_stm($1, 1);                           }
+| tab elsexp                            {
+                                            int n = else_eligible($1);
+                                            if (n == 0) {
+                                                yyerror("unexpected else statement");
                                             }
+                                            check_stm($1, 0);
+                                            // block_t *t;
+                                            // while (n > 0) {
+                                            //     t = blocks;
+                                            //     // fprintf(fp, "else%d:\n", t->id);
+                                            //     blocks = t->back;
+                                            //     free(t);
+                                            //     n--;
+                                            // }
                                         }
-;
-
-statement:
-  assignexp
-| printexp
-| specexp
+| tab loopexp
 ;
 
 text:
@@ -275,27 +284,29 @@ assignexp:
                                         }
 ;
 
-specexp:
+ifexp:
   IF '(' exp CMP exp ')' ':'            {
-                                            int id = create_block(0);
+                                            int id = create_block();
 
                                             print_exp($3);
                                             print("MOV", "RBX, RAX");
                                             print_exp($5);
 
                                             print_cmp($4, id);
+                                            println("");
+
+                                            fprintf(fp, "\nelse%d:\n", id);
                                         }
-| ELSE ':'                              {
-                                            if (is_if_block()) {
-                                                // create_block(1);
-                                                printf("else\n");
-                                            } else {
-                                                yyerror("unexpected else statement");
-                                            }
-                                        }
-| REPEAT '(' exp '|' exp ')' ':'        {
-                                            create_block(2);
-                                            printf("repeat %d -> %d:\n", $3, $5);
+;
+
+elsexp:
+  ELSE ':'
+;
+
+loopexp:
+  REPEAT '(' exp '|' exp ')' ':'        {
+                                            // create_block();
+                                            // printf("repeat %d -> %d:\n", $3, $5);
                                         }
 ;
 
@@ -305,22 +316,45 @@ void yyerror(char *s) {
     fprintf(stderr, "! ERROR: %s\n", s);
 }
 
-int create_block(int type) {
+int create_block() {
     block_t *block = (block_t *) malloc(sizeof(block_t));
     block->back = blocks;
-    block->type = type;
-    if (type >= 0 && type <= 1)
+    // block->type = type;
+    // if (type >= 0 && type <= 1)
         block->id = cond_id++;
-    else if (type == 2)
-        block->id = loop_id++;
-    block->level = ++indent_level;
+        block->els = 1;
+    // else if (type == 2)
+    //     block->id = loop_id++;
+    block->level = indent_level++;
+    // indent_level++;
 
     blocks = block;
     return block->id;
 }
 
-int is_if_block() {
-    return (blocks->type == 0 ? 1 : 0);
+int else_eligible(int tab) {
+    block_t *t = blocks;
+
+    int i = 0;
+    while (t && t->level >= tab) {
+        i++;
+        if (t->level == tab) {
+            return i;
+        }
+        t = t->back;
+    }
+    return i;
+}
+
+void check_stm(int tab, int is_if) {
+    block_t *t = blocks;
+    if (is_if)
+        tab++;
+    while (t && t->level >= tab) {
+        blocks = t->back;
+        free(t);
+        t = blocks;
+    }
 }
 
 int create_text(char *msg) {
@@ -358,11 +392,17 @@ void print_exp(exp_t *exp) {
     if (exp == NULL)
         return;
 
-    if (exp->left != NULL)
+    if (exp->left != NULL) {
+        // print("PUSH", "RDX");
         print_exp(exp->left);
+        // print("POP", "RDX");
+    }
     
-    if (exp->right != NULL)
+    if (exp->right != NULL) {
+        print("PUSH", "RCX");
         print_exp(exp->right);
+        print("POP", "RCX");
+    }
 
     if (exp->type == 0) {           // operator
         if (exp->val == '+') {
@@ -386,7 +426,7 @@ void print_exp(exp_t *exp) {
             }
         } else if (exp->val == '*') {
             print("MOV", "RAX, RCX");
-            print("MUL", "RDX");
+            print("IMUL", "RDX");
             if (exp->pos == -1) {
                 // done
             } else if (exp->pos == 0) {
@@ -474,7 +514,7 @@ void print_cmp(int op, int id) {
     else if(op == 3)print_ins("JGE");
     else if(op == 4)print_ins("JL");
     else if(op == 5)print_ins("JG");
-    fprintf(fp,"else%d\n",id);    
+    fprintf(fp,"else%d\n",id);
 }
 
 void print_dec() {      // print RAX
@@ -490,8 +530,10 @@ void print_dec() {      // print RAX
     // print("DEC", "R9");
 
     // check if RAX is negative
+    print("XOR", "RCX, RCX");
     print("CMP", "RAX, 0");
     print("JGE", "pd_lp");
+    print("NEG", "RAX");
     print("MOV", "RCX, 1");
     
     // put last digit to stack
@@ -505,7 +547,14 @@ void print_dec() {      // print RAX
     print("TEST", "RAX, RAX");
     print("JNZ", "pd_lp");
 
+    // print prefix
+    print("TEST", "RCX, RCX");
+    print("JZ", "pd_dash");
+    print("MOV", "byte [R9], 0x2D");          // -
+    print("DEC", "R9");
+
     // calculate digit amount
+    println("pd_dash:");
     print("SUB", "R10, R9");
 
     // print
