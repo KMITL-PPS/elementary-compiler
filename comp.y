@@ -467,12 +467,14 @@ void print_exp(exp_t *exp) {
 }
 
 void print_cmp(int op, int id) {
-    // CMP RBX, RAX
-
-    // if (operator == 0)
-    //     JNE   else%d , id
-
-    // }
+    print("CMP", "RBX, RAX");
+    if (op == 0)print_ins("JE");
+    else if(op == 1)print_ins("JNE");
+    else if(op == 2)print_ins("JLE");
+    else if(op == 3)print_ins("JGE");
+    else if(op == 4)print_ins("JL");
+    else if(op == 5)print_ins("JG");
+    fprintf(fp,"else%d\n",id);    
 }
 
 void print_dec() {      // print RAX
