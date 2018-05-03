@@ -43,7 +43,6 @@ void print_dec(void);
 void print_hex(void);
 
 extern void print(char *, char *);
-extern void print_label(char *);
 extern void print_ins(char *);
 extern void print_syscall(void);
 extern void println(char *);
@@ -138,9 +137,9 @@ file:
 
 line:
   %empty
-| tab statement
-| line NL tab statement                 {}
-| line error NL tab statement           {
+| stm
+| line NL stm
+| line error NL stm                     {
                                             YYABORT;
                                         }
 ;
@@ -148,6 +147,17 @@ line:
 tab:
   %empty                                {   $$ = 0;                                     }
 | tab TAB                               {   $$ = $1 + 1;                                }
+;
+
+stm:
+  tab statement                         {
+                                            while (tab < indent_level) {
+                                                fprintf(fp, "else%d:\n", blocks->id);
+                                                block_t *old = blocks;
+                                                blocks = blocks->back;
+                                                free(old);
+                                            }
+                                        }
 ;
 
 statement:
@@ -277,7 +287,7 @@ specexp:
                                         }
 | ELSE ':'                              {
                                             if (is_if_block()) {
-                                                create_block(1);
+                                                // create_block(1);
                                                 printf("else\n");
                                             } else {
                                                 yyerror("unexpected else statement");
@@ -433,6 +443,7 @@ void print_exp(exp_t *exp) {
             } else if (exp->pos == 1) {
                 print("MOV", "RDX, RCX");
             }
+        }
         println("");
     } else if (exp->type == 1) {    // immediate
         print_ins("MOV");
