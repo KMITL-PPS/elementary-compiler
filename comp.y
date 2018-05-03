@@ -38,7 +38,7 @@ int is_if_block(void);
 int create_text(char *);
 exp_t *create_exp(int, long, exp_t *, exp_t *);
 void print_exp(exp_t *);
-void print_cmp(int);
+void print_cmp(int, int);
 void print_dec(void);
 void print_hex(void);
 
@@ -273,7 +273,7 @@ specexp:
                                             print("MOV", "RBX, RAX");
                                             print_exp($5);
 
-                                            print_cmp($4);
+                                            print_cmp($4, id);
                                         }
 | ELSE ':'                              {
                                             if (is_if_block()) {
@@ -455,17 +455,13 @@ void print_exp(exp_t *exp) {
     }
 }
 
-void print_cmp(int op) {
-    // PUSH
+void print_cmp(int op, int id) {
     // CMP RBX, RAX
 
     // if (operator == 0)
     //     JNE   else%d , id
 
     // }
-
-    // else%d:
-    // POP
 }
 
 void print_dec() {      // print RAX
