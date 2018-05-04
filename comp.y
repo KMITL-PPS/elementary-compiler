@@ -5,7 +5,7 @@
 #include <string.h>
 #include <math.h>
 
-typedef buffer_t buffer_t;
+typedef struct buffer_t buffer_t;
 struct buffer_t {
     char *str;
 
@@ -40,13 +40,26 @@ struct exp_t {
 } *exps;
 
 void yyerror(char *);
+
+int len(long);
+buffer_t *buf(void);
+buffer_t *create_buf(void);
+
+void add_all(char *, char *, long, char *);
+void add(char *, char *);
+// void add_ins(char *);
+void add_label(char *, int);
+void add_syscall(void);
+void addln(char *);
+// void add_space(int);
+
 int create_block(void);
 int else_eligible(int);
 void check_stm(int, int);
 int create_text(char *);
 exp_t *create_exp(int, long, exp_t *, exp_t *);
-void print_exp(exp_t *);
-void print_cmp(int, int);
+void add_exp(exp_t *);
+void add_cmp(int, int);
 void print_dec(void);
 void print_hex(void);
 
@@ -64,6 +77,7 @@ int cond_id = 0, loop_id = 0, pow_id = 0;
 
 %union {
     struct exp_t *e;
+    struct buffer_t *b;
     int i;
     long l;
     char *s;
@@ -83,8 +97,9 @@ int cond_id = 0, loop_id = 0, pow_id = 0;
 %token      END_OF_FILE 0
 
 %type <e>   exp
-%type <i>   hex stm
-%type <s>   text assignexp printexp ifexp elsexp loopexp
+%type <i>   hex
+%type <s>   text
+%type <b>   line stm assignexp printexp ifexp elsexp loopexp
 
 %left                                   '+' '-'
 %left                                   '*' '/' '%'
@@ -95,6 +110,15 @@ int cond_id = 0, loop_id = 0, pow_id = 0;
 
 file:
   line END_OF_FILE                      {
+                                            // buffer_t *tail = $1;
+                                            // while (tail) {
+                                            //     // if (tail->str != NULL) {
+                                            //         println(tail->str);
+                                            //         printf("test");
+                                            //     // }
+                                            //     tail = tail->next;
+                                            // }
+
                                             // append exit to assembly
                                             print("MOV", "RAX, SYS_EXIT");
                                             print("MOV", "RDI, EXIT_CODE");
@@ -141,10 +165,13 @@ file:
 ;
 
 line:
-  %empty
-| stm line
-| stm error line                        {
-                                            YYABORT;
+  statement                                   {
+                                            // $$ = $1;
+                                        }
+| line statement                              {
+                                            // $1->next = $2;
+                                            // $$ = $1;
+                                            // printf("=%d/%d=", $1, $2);
                                         }
 ;
 
@@ -153,14 +180,22 @@ end:
 | END_OF_FILE
 ;
 
-inblock:
-  INDENT stm
-| inblock NL INDENT stm
+statement:
+  stm                                   {
+                                            buffer_t *tail = $1;
+                                            while (tail) {
+                                                if (tail->str) {
+                                                    println(tail->str);
+                                                }
+                                                tail = tail->next;
+                                            }
+                                            println("");
+                                        }
 ;
 
 stm:
-  assignexp end
-| printexp end
+  assignexp end                         {   $$ = $1;                                    }
+| printexp end                          {   $$ = $1;                                    }
 | ifexp
 | loopexp
 ;
@@ -231,73 +266,87 @@ exp:
 
 printexp:
   exp RIGHT_ARROW hex                   {
+                                            $$ = buf();
+
                                             if ($3) {   // print HEX
-                                                print_exp($1);
-                                                print("CALL", "print_hex");
-                                                println("");
+                                                add_exp($1);
+                                                add("CALL", "print_hex");
                                             } else {    // print DEC
-                                                print_exp($1);
-                                                print("CALL", "print_dec");
-                                                println("");
+                                                add_exp($1);
+                                                add("CALL", "print_dec");
                                             }
                                         }
 | text RIGHT_ARROW                      {
-                                            // TODO: ->>  |  - > >   println()
+                                            $$ = buf();
+                                            
+                                            // TODO: ->>  |  - > >   addln()
                                             if ($1) {   // print TEXT
                                                 // TODO: recheck above
                                                 int id = create_text($1);
 
-                                                print("MOV", "RAX, SYS_WRITE");
-                                                print("MOV", "RDI, STD_OUT");
-                                                print_ins("MOV");
-                                                fprintf(fp, "RSI, t%d\n", id);
-                                                print_ins("MOV");
-                                                fprintf(fp, "RDX, %lu\n", strlen($1) - 2);
-                                                print_syscall();
+                                                add("MOV", "RAX, SYS_WRITE");
+                                                add("MOV", "RDI, STD_OUT");
+                                                // add_ins("MOV");
+                                                // fprintf(fp, "RSI, t%d\n", id);
+                                                add_all("MOV", "RSI, t", id, "");
+                                                // add_ins("MOV");
+                                                // fprintf(fp, "RDX, %lu\n", strlen($1) - 2);
+                                                add_all("MOV", "RDX, ", strlen($1) - 2, "");
+                                                add_syscall();
 
                                             // print NEWLINE
                                             } else {
-                                                print("MOV", "RAX, SYS_WRITE");
-                                                print("MOV", "RDI, STD_OUT");
-                                                print("MOV", "RSI, nl");
-                                                print("MOV", "RDX, 1");
-                                                print_syscall();
+                                                add("MOV", "RAX, SYS_WRITE");
+                                                add("MOV", "RDI, STD_OUT");
+                                                add("MOV", "RSI, nl");
+                                                add("MOV", "RDX, 1");
+                                                add_syscall();
                                             }
                                         }
 ;
 
 assignexp:
   REG LEFT_ARROW exp                    {
-                                            print_exp($3);
-                                            print_ins("MOV");
-                                            fprintf(fp, "[reg + %d], RAX\n\n", $1 * 8);
+                                            $$ = buf();
+                                            
+                                            add_exp($3);
+                                            // add_ins("MOV");
+                                            // fprintf(fp, "[reg + %d], RAX\n\n", $1 * 8);
+                                            add_all("MOV", "[reg + ", $1 * 8, "], RAX\n");
                                         }
 ;
 
 ifexp:
   IF '(' exp CMP exp ')' ':' NL INDENT stm DEDENT elsexp
                                         {
+                                            $$ = buf();
+                                            
                                             int id = create_block();
 
-                                            print_exp($3);
-                                            print("MOV", "RBX, RAX");
-                                            print_exp($5);
+                                            add_exp($3);
+                                            add("MOV", "RBX, RAX");
+                                            add_exp($5);
 
-                                            print_cmp($4, id);
-                                            println("");
+                                            add_cmp($4, id);
+                                            addln("");
 
-                                            fprintf(fp, "\nelse%d:\n", id);
+                                            // fprintf(fp, "\nelse%d:\n", id);
                                         }
 ;
 
 elsexp:
-  %empty
-| ELSE ':' NL INDENT stm DEDENT         {}
+  %empty                                {}
+| ELSE ':' NL INDENT stm DEDENT         {
+                                            $$ = buf();
+                                            
+                                        }
 ;
 
 loopexp:
   REPEAT '(' exp '|' exp ')' ':' NL INDENT stm DEDENT
                                         {
+                                            $$ = buf();
+                                            
                                             // create_block();
                                             // printf("repeat %d -> %d:\n", $3, $5);
                                         }
@@ -307,6 +356,73 @@ loopexp:
 
 void yyerror(char *s) {
     fprintf(stderr, "! ERROR: %s\n", s);
+}
+
+int len(long num) {
+    int n = 0;
+    while (num > 0) {
+        num /= 10;
+        n++;
+    }
+    return n;
+}
+
+buffer_t *buf() {
+    *cur_buf = malloc(sizeof(buffer_t));
+    (*cur_buf)->str = NULL;
+    (*cur_buf)->next = NULL;
+    return *cur_buf;
+}
+
+buffer_t *create_buf() {
+    buffer_t *t = *cur_buf;
+    // if (!t->str) {
+    //     return t;
+    // }
+    while (t->next != NULL) {
+        t = t->next;
+    }
+    t->next = malloc(sizeof(buffer_t));
+    return t->next;
+}
+
+void add_all(char *ins, char *param, long num, char *tail) {
+    buffer_t *buff = create_buf();
+
+    char *tmp = malloc(sizeof(char) + 24 + strlen(param) + len(num) + strlen(tail));
+    sprintf(tmp, "%16s%-7s %s%ld%s", "", ins, param, num, tail);
+    buff->str = tmp;
+    buff->next = NULL;
+}
+
+void add(char *ins, char *param) {
+    buffer_t *buff = create_buf();
+
+    char *tmp = malloc(sizeof(char) + 24 + strlen(param));
+    sprintf(tmp, "%16s%-7s %s", "", ins, param);
+    buff->str = tmp;
+    buff->next = NULL;
+}
+
+void add_label(char *label, int num) {
+    buffer_t *buff = create_buf();
+
+    char *tmp = malloc(sizeof(char) * 2 + strlen(label) + len(num));
+    sprintf(tmp, "%s%d:", label, num);
+    buff->str = tmp;
+    buff->next = NULL;
+}
+
+void add_syscall(void) {
+    add("syscall", "");
+}
+
+void addln(char *str) {
+    buffer_t *buff = create_buf();
+    char *tmp = malloc(sizeof(char) + strlen(str));
+    sprintf(tmp, "%s", str);
+    buff->str = tmp;
+    buff->next = NULL;
 }
 
 int create_block() {
@@ -380,133 +496,148 @@ exp_t *create_exp(int type, long val, exp_t *left, exp_t *right) {
     return exp;
 }
 
-void print_exp(exp_t *exp) {
+void add_exp(exp_t *exp) {
     if (exp == NULL)
         return;
 
     if (exp->left != NULL) {
-        // print("PUSH", "RDX");
-        print_exp(exp->left);
-        // print("POP", "RDX");
+        // add("PUSH", "RDX");
+        add_exp(exp->left);
+        // add("POP", "RDX");
     }
     
     if (exp->right != NULL) {
-        print("PUSH", "RCX");
-        print_exp(exp->right);
-        print("POP", "RCX");
+        add("PUSH", "RCX");
+        add_exp(exp->right);
+        add("POP", "RCX");
     }
 
     if (exp->type == 0) {           // operator
         if (exp->val == '+') {
             if (exp->pos == -1) {
-                print("MOV", "RAX, RCX");
-                print("ADD", "RAX, RDX");
+                add("MOV", "RAX, RCX");
+                add("ADD", "RAX, RDX");
             } else if (exp->pos == 0) {
-                print("ADD", "RCX, RDX");
+                add("ADD", "RCX, RDX");
             } else if (exp->pos == 1) {
-                print("ADD", "RDX, RCX");
+                add("ADD", "RDX, RCX");
             }
         } else if (exp->val == '-') {
             if (exp->pos == -1) {
-                print("MOV", "RAX, RCX");
-                print("SUB", "RAX, RDX");
+                add("MOV", "RAX, RCX");
+                add("SUB", "RAX, RDX");
             } else if (exp->pos == 0) {
-                print("SUB", "RCX, RDX");
+                add("SUB", "RCX, RDX");
             } else if (exp->pos == 1) {
-                print("NEG", "RDX");
-                print("ADD", "RDX, RCX");
+                add("NEG", "RDX");
+                add("ADD", "RDX, RCX");
             }
         } else if (exp->val == '*') {
-            print("MOV", "RAX, RCX");
-            print("IMUL", "RDX");
+            add("MOV", "RAX, RCX");
+            add("IMUL", "RDX");
             if (exp->pos == -1) {
                 // done
             } else if (exp->pos == 0) {
-                print("MOV", "RCX, RAX");
+                add("MOV", "RCX, RAX");
             } else if (exp->pos == 1) {
-                print("MOV", "RDX, RAX");
+                add("MOV", "RDX, RAX");
             }
         } else if (exp->val == '/') {
-            print("MOV", "RAX, RCX");
-            print("DIV", "RDX");
+            add("MOV", "RAX, RCX");
+            add("DIV", "RDX");
             if (exp->pos == -1) {
                 // done
             } else if (exp->pos == 0) {
-                print("MOV", "RCX, RAX");
+                add("MOV", "RCX, RAX");
             } else if (exp->pos == 1) {
-                print("MOV", "RDX, RAX");
+                add("MOV", "RDX, RAX");
             }
         } else if (exp->val == '%') {
-            print("MOV", "RAX, RCX");
-            print("DIV", "RDX");
+            add("MOV", "RAX, RCX");
+            add("DIV", "RDX");
             if (exp->pos == -1) {
-                print("MOV", "RAX, RDX");
+                add("MOV", "RAX, RDX");
             } else if (exp->pos == 0) {
-                print("MOV", "RCX, RDX");
+                add("MOV", "RCX, RDX");
             } else if (exp->pos == 1) {
                 // done
             }
         } else if (exp->val == '^') {
-            print("XOR", "RSI, RSI");
-            print("MOV", "RAX, 1");
-            print("MOV", "R9, RDX");
+            add("XOR", "RSI, RSI");
+            add("MOV", "RAX, 1");
+            add("MOV", "R9, RDX");
 
-            fprintf(fp, "pow%d:\n", pow_id);
-            print("MUL", "RCX");
-            print("INC", "RSI");
+            // fprintf(fp, "pow%d:\n", pow_id);
+            add_label("pow", pow_id);
+            add("MUL", "RCX");
+            add("INC", "RSI");
 
-            print("CMP", "RSI, R9");
-            print_ins("JL");
-            fprintf(fp, "pow%d\n", pow_id++);
+            add("CMP", "RSI, R9");
+            // add_ins("JL");
+            // fprintf(fp, "pow%d\n", pow_id++);
+            add_all("JL", "pow", pow_id++, "");
 
             if (exp->pos == -1) {
                 // done
             } else if (exp->pos == 0) {
-                print("MOV", "RCX, RAX");
+                add("MOV", "RCX, RAX");
             } else if (exp->pos == 1) {
-                print("MOV", "RDX, RAX");
+                add("MOV", "RDX, RAX");
             }
         } else if (exp->val == '~') {
-            print("NEG", "RCX");
+            add("NEG", "RCX");
             if (exp->pos == -1) {
-                print("MOV", "RAX, RCX");
+                add("MOV", "RAX, RCX");
             } else if (exp->pos == 0) {
                 // done
             } else if (exp->pos == 1) {
-                print("MOV", "RDX, RCX");
+                add("MOV", "RDX, RCX");
             }
         }
-        println("");
+        addln("");
     } else if (exp->type == 1) {    // immediate
-        print_ins("MOV");
+        // add_ins("MOV");
         if (exp->pos == 0) {    // left arm
-            fprintf(fp, "RCX, %ld\n", exp->val);
+            // fprintf(fp, "RCX, %ld\n", exp->val);
+            add_all("MOV", "RCX, ", exp->val, "");
         } else if (exp->pos == 1) {                // right arm
-            fprintf(fp, "RDX, %ld\n", exp->val);
+            // fprintf(fp, "RDX, %ld\n", exp->val);
+            add_all("MOV", "RDX, ", exp->val, "");
         } else {
-            fprintf(fp, "RAX, %ld\n", exp->val);
+            // fprintf(fp, "RAX, %ld\n", exp->val);
+            add_all("MOV", "RAX, ", exp->val, "");
         }
     } else if (exp->type == 2) {    // register
-        print_ins("MOV");
+        // add_ins("MOV");
         if (exp->pos == 0) {    // left arm
-            fprintf(fp, "RCX, [reg + %ld]\n", exp->val);
+            // fprintf(fp, "RCX, [reg + %ld]\n", exp->val);
+            add_all("MOV", "RCX, [reg + ", exp->val, "]");
         } else if (exp->pos == 1) {                // right arm
-            fprintf(fp, "RDX, [reg + %ld]\n", exp->val);
+            // fprintf(fp, "RDX, [reg + %ld]\n", exp->val);
+            add_all("MOV", "RDX, [reg + ", exp->val, "]");
         } else {                // center
-            fprintf(fp, "RAX, [reg + %ld]\n", exp->val);
+            // fprintf(fp, "RAX, [reg + %ld]\n", exp->val);
+            add_all("MOV", "RAX, [reg + ", exp->val, "]");
         }
     }
 }
 
-void print_cmp(int op, int id) {
-    print("CMP", "RBX, RAX");
-    if (op == 0)print_ins("JE");
-    else if(op == 1)print_ins("JNE");
-    else if(op == 2)print_ins("JLE");
-    else if(op == 3)print_ins("JGE");
-    else if(op == 4)print_ins("JL");
-    else if(op == 5)print_ins("JG");
-    fprintf(fp,"else%d\n",id);
+void add_cmp(int op, int id) {
+    add("CMP", "RBX, RAX");
+    if (op == 0)
+        // add_ins("JE");
+        add_all("JE", "else", id, "");
+    else if(op == 1)
+        add_all("JNE", "else", id, "");
+    else if(op == 2)
+        add_all("JLE", "else", id, "");
+    else if(op == 3)
+        add_all("JGE", "else", id, "");
+    else if(op == 4)
+        add_all("JL", "else", id, "");
+    else if(op == 5)
+        add_all("JG", "else", id, "");
+    // fprintf(fp,"else%d\n",id);
 }
 
 void print_dec() {      // print RAX

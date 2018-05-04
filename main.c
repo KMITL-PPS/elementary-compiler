@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 char *get_file_name(char *);
@@ -11,6 +12,7 @@ void print_space(int);
 
 extern int yyparse();
 extern FILE *yyin;
+extern struct buffer_t **cur_buf;
 
 FILE *fp;
 
@@ -33,6 +35,9 @@ int main(int argc, char **argv)
 	println("");
 	print("section", ".text");
 	println("_start:");
+
+	// initialize cur_buf
+	cur_buf = malloc(sizeof(struct buffer_t *));
 
 	yyparse();
 
