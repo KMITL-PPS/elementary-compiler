@@ -56,6 +56,7 @@ int create_text(char *);
 exp_t *create_exp(int, long, exp_t *, exp_t *);
 void add_exp(exp_t *);
 void add_cmp(int, int, int);
+void print_nl(void);
 void print_dec(void);
 void print_hex(void);
 
@@ -66,8 +67,8 @@ extern void println(char *);
 extern void print_space(int);
 extern FILE *fp;
 
-int indent_level = 0;
 int cond_id = 0, loop_id = 0, pow_id = 0;
+int have_print_dec = 0, have_print_hex = 0, have_print_nl = 0;
 
 %}
 
@@ -86,8 +87,8 @@ int cond_id = 0, loop_id = 0, pow_id = 0;
 %token <s>  TEXT NL
 %token      '(' ')'
 %token      '^' NEG '*' '/' '%' '+' '-'
-%token <i>  CMP
-%token      LEFT_ARROW RIGHT_ARROW DRIGHT_ARROW
+%token <i>  CMP RIGHT_ARROW
+%token      LEFT_ARROW
 %token      IF ELSE REPEAT
 %token      INDENT DEDENT
 %token      END_OF_FILE 0
@@ -121,11 +122,19 @@ file:
                                             println("");
 
                                             // print functions
-                                            print_dec();
-                                            println("");
-                                            print_hex();
-                                            println("");
-
+                                            if (have_print_nl) {
+                                                print_nl();
+                                                println("");
+                                            }
+                                            if (have_print_dec) {
+                                                print_dec();
+                                                println("");
+                                            }
+                                            if (have_print_hex) {
+                                                print_hex();
+                                                println("");
+                                            }
+                                            
                                             // data section
                                             print("section", ".data");
 
@@ -266,9 +275,15 @@ printexp:
                                             if ($3) {   // print HEX
                                                 add_exp($1);
                                                 add("CALL", "print_hex");
+                                                have_print_hex = 1;
                                             } else {    // print DEC
                                                 add_exp($1);
                                                 add("CALL", "print_dec");
+                                                have_print_dec = 1;
+                                            }
+                                            if ($2) {
+                                                add("CALL", "print_nl");
+                                                have_print_nl = 1;
                                             }
                                             addln("");
                                         }
@@ -290,13 +305,15 @@ printexp:
                                                 add_all("MOV", "RDX, ", strlen($1) - 2, "");
                                                 add_syscall();
 
+                                                if ($2) {
+                                                    add("CALL", "print_nl");
+                                                    have_print_nl = 1;
+                                                }
+
                                             // print NEWLINE
                                             } else {
-                                                add("MOV", "RAX, SYS_WRITE");
-                                                add("MOV", "RDI, STD_OUT");
-                                                add("MOV", "RSI, nl");
-                                                add("MOV", "RDX, 1");
-                                                add_syscall();
+                                                add("CALL", "print_nl");
+                                                have_print_nl = 1;
                                             }
                                             addln("");
                                         }
@@ -326,21 +343,21 @@ ifexp:
                                             add_exp($5);
                                             add("POP", "RBX");
 
-                                            add_cmp($4, loop_id, ($12 ? 1 : 0));
+                                            add_cmp($4, cond_id, ($12 ? 1 : 0));
                                             addln("");
 
                                             buffer_t *t = get_buf_tail();
                                             t->next = $10;
 
                                             if ($12) {
-                                                add_all("JMP", "cont", loop_id, "");
+                                                add_all("JMP", "cont", cond_id, "");
                                                 // fprintf(fp, "\nelse%d:\n", id);
-                                                add_label("else", loop_id);
+                                                add_label("else", cond_id);
                                                 t = get_buf_tail();
                                                 t->next = $12;
                                             }
 
-                                            add_label("cont", loop_id++);
+                                            add_label("cont", cond_id++);
                                         }
 ;
 
@@ -365,7 +382,26 @@ loopexp:
                                             add("POP", "RCX");
 
                                             add_label("loop", loop_id);
+                                            add("CMP", "RCX, RAX");
+                                            add_all("JG", "lpcn", loop_id, "");
+                                            add("PUSH", "RCX");
+                                            add("PUSH", "RAX");
+                                            addln("");
 
+                                            // TODO: recheck this
+                                            // buffer_t *t = $10;
+                                            // while (t) {
+                                            //     addln(t->str);
+                                            //     t = t->next;
+                                            // }
+                                            buffer_t *t = get_buf_tail();
+                                            t->next = $10;
+
+                                            add("POP", "RAX");
+                                            add("POP", "RCX");
+                                            add("INC", "RCX");
+                                            add_all("JMP", "loop", loop_id, "");
+                                            add_label("lpcn", loop_id++);
                                             addln("");
                                         }
 ;
@@ -630,8 +666,39 @@ void add_cmp(int op, int id, int have_else) {
     // fprintf(fp,"else%d\n",id);
 }
 
+void print_nl() {
+    println("print_nl:");
+
+    // push register for safety
+    print("PUSH", "RAX");
+    print("PUSH", "RDX");
+    print("PUSH", "RSI");
+    println("");
+
+    print("MOV", "RAX, SYS_WRITE");
+    print("MOV", "RDI, STD_OUT");
+    print("MOV", "RSI, nl");
+    print("MOV", "RDX, 1");
+    print_syscall();
+
+    // pop register for safety
+    print("POP", "RSI");
+    print("POP", "RDX");
+    print("POP", "RAX");
+    println("");
+
+    print("RET", "");
+}
+
 void print_dec() {      // print RAX
     println("print_dec:");
+
+    // push register for safety
+    print("PUSH", "RAX");
+    print("PUSH", "RCX");
+    print("PUSH", "RDX");
+    print("PUSH", "RSI");
+    println("");
 
     // resources
     print("LEA", "R9, [number + 18]");
@@ -677,11 +744,26 @@ void print_dec() {      // print RAX
     print("MOV", "RSI, R9");
     print("MOV", "RDX, R10");
     print_syscall();
+
+    // pop register for safety
+    print("POP", "RSI");
+    print("POP", "RDX");
+    print("POP", "RCX");
+    print("POP", "RAX");
+    println("");
+
     print("RET", "");
 }
 
 void print_hex() {
     println("print_hex:");
+
+    // push register for safety
+    print("PUSH", "RAX");
+    print("PUSH", "RCX");
+    print("PUSH", "RDX");
+    print("PUSH", "RSI");
+    println("");
 
     // resources
     print("LEA", "R9, [number + 18]");
@@ -729,5 +811,13 @@ void print_hex() {
     print("MOV", "RSI, R9");
     print("MOV", "RDX, R10");
     print_syscall();
+
+    // pop register for safety
+    print("POP", "RSI");
+    print("POP", "RDX");
+    print("POP", "RCX");
+    print("POP", "RAX");
+    println("");
+
     print("RET", "");
 }

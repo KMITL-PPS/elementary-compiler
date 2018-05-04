@@ -62,10 +62,10 @@ int level = 0;
 ">-<"                       {   yylval.i = 0; return CMP;                        }
 "<->"                       {   yylval.i = 1; return CMP;                        }
 
-"->>"                       {   return DRIGHT_ARROW;                             }
+"->>"                       {   yylval.i = 1; return RIGHT_ARROW;                }
 
 "<-"                        {   return LEFT_ARROW;                               }
-"->"                        {   return RIGHT_ARROW;                              }
+"->"                        {   yylval.i = 0; return RIGHT_ARROW;                }
 
 ">"                         {   yylval.i = 2; return CMP;                        }
 "<"                         {   yylval.i = 3; return CMP;                        }
