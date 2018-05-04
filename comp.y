@@ -13,7 +13,6 @@ struct block_t {
     int id;
     // int right;
     int level;
-    int els;                    // 0 = cannot else, 1 = can use else
 } *blocks;
 
 typedef struct text_t text_t;
@@ -75,7 +74,7 @@ int cond_id = 0, loop_id = 0, pow_id = 0;
 %token      '(' ')'
 %token      '^' NEG '*' '/' '%' '+' '-'
 %token <i>  CMP
-%token      LEFT_ARROW RIGHT_ARROW
+%token      LEFT_ARROW RIGHT_ARROW DRIGHT_ARROW
 %token      IF ELSE REPEAT
 %token      TAB
 %token      END_OF_FILE 0
@@ -321,7 +320,6 @@ int create_block() {
     // block->type = type;
     // if (type >= 0 && type <= 1)
         block->id = cond_id++;
-        block->els = 1;
     // else if (type == 2)
     //     block->id = loop_id++;
     block->level = indent_level++;
