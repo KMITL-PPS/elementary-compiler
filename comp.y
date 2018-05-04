@@ -5,6 +5,13 @@
 #include <string.h>
 #include <math.h>
 
+typedef buffer_t buffer_t;
+struct buffer_t {
+    char *str;
+
+    buffer_t *next;
+} **cur_buf;
+
 typedef struct block_t block_t;
 struct block_t {
     block_t *back;
@@ -49,10 +56,6 @@ extern void print_syscall(void);
 extern void println(char *);
 extern void print_space(int);
 extern FILE *fp;
-
-// register $A - $z
-// TODO: reMOVe this when convert to asm
-int reg[52] = {0};
 
 int indent_level = 0;
 int cond_id = 0, loop_id = 0, pow_id = 0;
