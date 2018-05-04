@@ -3,6 +3,8 @@ L               [a-zA-Z]
 H               [a-fA-F0-9]
 
 %option noyywrap
+%x START
+%s NORMAL
 %{
 #include <stdio.h>
 #include <string.h>
@@ -10,16 +12,55 @@ H               [a-fA-F0-9]
 
 long hexToDec(char *);
 int getReg(char);
+
+int level = 0;
 %}
 
 %%
+
+<INITIAL>.*|\n              {
+                                yyless(0);
+                                level = 0;
+                                BEGIN(START);
+                            }
+<START>(\t)*                {
+                                if (yyleng > level) {
+                                    level++;
+                                    yyless(0);
+                                    return INDENT;
+                                } else if (yyleng < level) {
+                                    level--;
+                                    yyless(0);
+                                    return DEDENT;
+                                } else {
+                                    BEGIN(NORMAL);
+                                }
+                            }
+<START>.                    {
+                                yyless(0);
+                                if (level > 0) {
+                                    level--;
+                                    return DEDENT;
+                                } else {
+                                    BEGIN(NORMAL);
+                                }
+                            }
+<START><<EOF>>              {
+                                if (level > 0) {
+                                    level--;
+                                    yyless(0);
+                                    return DEDENT;
+                                } else {
+                                    BEGIN(NORMAL);
+                                }
+                            }
 
 "<->>"                      {   yylval.i = 4; return CMP;                        }
 "<<->"                      {   yylval.i = 5; return CMP;                        }
 ">-<"                       {   yylval.i = 0; return CMP;                        }
 "<->"                       {   yylval.i = 1; return CMP;                        }
 
-"->>"                       {   return DRIGHT_ARROW;                              }
+"->>"                       {   return DRIGHT_ARROW;                             }
 
 "<-"                        {   return LEFT_ARROW;                               }
 "->"                        {   return RIGHT_ARROW;                              }
@@ -60,9 +101,9 @@ int getReg(char);
                                 return TEXT;
                             }
 
-(\t)                        {   return TAB;                                      }
 \n                          {
                                 yylineno++;
+                                BEGIN(START);
                                 return NL;
                             }
 
@@ -107,7 +148,7 @@ int getReg(char c)
 // test flex
 // int main(int argc, char **argv)
 // {
-//     // yyin = fopen(argv[1], "r");
+//     yyin = fopen(argv[1], "r");
     
 //     int token;
 
@@ -121,7 +162,7 @@ int getReg(char c)
 //         printf("]\n");
 //     }
 
-//     // fclose(yyin);
+//     fclose(yyin);
 
 //     return 0;
 // }
