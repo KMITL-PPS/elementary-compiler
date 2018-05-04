@@ -46,12 +46,14 @@ int level = 0;
                                 }
                             }
 <START><<EOF>>              {
+                                // yyless(0);
                                 if (level > 0) {
                                     level--;
-                                    yyless(0);
+                                    // yyless(0);
                                     return DEDENT;
                                 } else {
                                     BEGIN(NORMAL);
+                                    // return END_OF_FILE;
                                 }
                             }
 

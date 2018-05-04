@@ -25,6 +25,14 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
+	FILE *ip = fopen(argv[1], "a+");
+	fseek(ip, -1, SEEK_END);
+	char c = fgetc(ip);
+	if (c != '\n') {
+		fwrite("\n", sizeof(char), 1, ip);
+	}
+	fclose(ip);
+
 	yyin = fopen(argv[1], "r");
 
 	// create .asm file

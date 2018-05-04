@@ -42,24 +42,20 @@ struct exp_t {
 void yyerror(char *);
 
 int len(long);
+buffer_t *get_buf_tail(void);
 buffer_t *buf(void);
 buffer_t *create_buf(void);
 
 void add_all(char *, char *, long, char *);
 void add(char *, char *);
-// void add_ins(char *);
 void add_label(char *, int);
 void add_syscall(void);
 void addln(char *);
-// void add_space(int);
 
-int create_block(void);
-int else_eligible(int);
-void check_stm(int, int);
 int create_text(char *);
 exp_t *create_exp(int, long, exp_t *, exp_t *);
 void add_exp(exp_t *);
-void add_cmp(int, int);
+void add_cmp(int, int, int);
 void print_dec(void);
 void print_hex(void);
 
@@ -110,14 +106,13 @@ int cond_id = 0, loop_id = 0, pow_id = 0;
 
 file:
   line END_OF_FILE                      {
-                                            // buffer_t *tail = $1;
-                                            // while (tail) {
-                                            //     // if (tail->str != NULL) {
-                                            //         println(tail->str);
-                                            //         printf("test");
-                                            //     // }
-                                            //     tail = tail->next;
-                                            // }
+                                            buffer_t *tail = $1;
+                                            while (tail) {
+                                                if (tail->str)
+                                                    println(tail->str);
+                                                tail = tail->next;
+                                            }
+                                            free($1);
 
                                             // append exit to assembly
                                             print("MOV", "RAX, SYS_EXIT");
@@ -165,38 +160,38 @@ file:
 ;
 
 line:
-  statement                                   {
-                                            // $$ = $1;
+  %empty                                {
+                                            $$ = NULL;
                                         }
-| line statement                              {
+| stm line                              {
+                                            $$ = $1;
+                                            buffer_t *t = $1;
+                                            while (t && t->next) {
+                                                t = t->next;
+                                            }
+                                            t->next = $2;
                                             // $1->next = $2;
-                                            // $$ = $1;
-                                            // printf("=%d/%d=", $1, $2);
+                                            // free($1);
                                         }
+| stm error line                        {   YYABORT;                                    }
 ;
 
 end:
   NL
-| END_OF_FILE
-;
-
-statement:
-  stm                                   {
-                                            buffer_t *tail = $1;
-                                            while (tail) {
-                                                if (tail->str) {
-                                                    println(tail->str);
-                                                }
-                                                tail = tail->next;
-                                            }
-                                            println("");
-                                        }
 ;
 
 stm:
   assignexp end                         {   $$ = $1;                                    }
 | printexp end                          {   $$ = $1;                                    }
-| ifexp
+| ifexp                                 {
+                                            // buffer_t *tail = $1;
+                                            // while (tail) {
+                                            //     if (tail->str)
+                                            //         println(tail->str);
+                                            //     tail = tail->next;
+                                            // }
+                                            // free($1);
+                                        }
 | loopexp
 ;
 
@@ -275,6 +270,7 @@ printexp:
                                                 add_exp($1);
                                                 add("CALL", "print_dec");
                                             }
+                                            addln("");
                                         }
 | text RIGHT_ARROW                      {
                                             $$ = buf();
@@ -302,6 +298,7 @@ printexp:
                                                 add("MOV", "RDX, 1");
                                                 add_syscall();
                                             }
+                                            addln("");
                                         }
 ;
 
@@ -312,43 +309,64 @@ assignexp:
                                             add_exp($3);
                                             // add_ins("MOV");
                                             // fprintf(fp, "[reg + %d], RAX\n\n", $1 * 8);
-                                            add_all("MOV", "[reg + ", $1 * 8, "], RAX\n");
+                                            add_all("MOV", "[reg + ", $1 * 8, "], RAX");
+
+                                            addln("");
                                         }
 ;
 
 ifexp:
-  IF '(' exp CMP exp ')' ':' NL INDENT stm DEDENT elsexp
+  IF '(' exp CMP exp ')' ':' NL INDENT line DEDENT elsexp
                                         {
                                             $$ = buf();
-                                            
-                                            int id = create_block();
 
                                             add_exp($3);
                                             add("MOV", "RBX, RAX");
+                                            add("PUSH", "RBX");
                                             add_exp($5);
+                                            add("POP", "RBX");
 
-                                            add_cmp($4, id);
+                                            add_cmp($4, loop_id, ($12 ? 1 : 0));
                                             addln("");
 
-                                            // fprintf(fp, "\nelse%d:\n", id);
+                                            buffer_t *t = get_buf_tail();
+                                            t->next = $10;
+
+                                            if ($12) {
+                                                add_all("JMP", "cont", loop_id, "");
+                                                // fprintf(fp, "\nelse%d:\n", id);
+                                                add_label("else", loop_id);
+                                                t = get_buf_tail();
+                                                t->next = $12;
+                                            }
+
+                                            add_label("cont", loop_id++);
                                         }
 ;
 
 elsexp:
-  %empty                                {}
-| ELSE ':' NL INDENT stm DEDENT         {
-                                            $$ = buf();
-                                            
+  %empty                                {   $$ = NULL;                                  }
+| ELSE ':' NL INDENT line DEDENT        {
+                                            // $$ = buf();
+                                            // addln("");
+                                            $$ = $5;
                                         }
 ;
 
 loopexp:
-  REPEAT '(' exp '|' exp ')' ':' NL INDENT stm DEDENT
+  REPEAT '(' exp '|' exp ')' ':' NL INDENT line DEDENT
                                         {
                                             $$ = buf();
                                             
-                                            // create_block();
-                                            // printf("repeat %d -> %d:\n", $3, $5);
+                                            add_exp($3);
+                                            add("MOV", "RCX, RAX");
+                                            add("PUSH", "RCX");
+                                            add_exp($5);
+                                            add("POP", "RCX");
+
+                                            add_label("loop", loop_id);
+
+                                            addln("");
                                         }
 ;
 
@@ -374,7 +392,7 @@ buffer_t *buf() {
     return *cur_buf;
 }
 
-buffer_t *create_buf() {
+buffer_t *get_buf_tail() {
     buffer_t *t = *cur_buf;
     // if (!t->str) {
     //     return t;
@@ -382,6 +400,11 @@ buffer_t *create_buf() {
     while (t->next != NULL) {
         t = t->next;
     }
+    return t;
+}
+
+buffer_t *create_buf() {
+    buffer_t *t = get_buf_tail();
     t->next = malloc(sizeof(buffer_t));
     return t->next;
 }
@@ -423,46 +446,6 @@ void addln(char *str) {
     sprintf(tmp, "%s", str);
     buff->str = tmp;
     buff->next = NULL;
-}
-
-int create_block() {
-    block_t *block = (block_t *) malloc(sizeof(block_t));
-    block->back = blocks;
-    // block->type = type;
-    // if (type >= 0 && type <= 1)
-        block->id = cond_id++;
-    // else if (type == 2)
-    //     block->id = loop_id++;
-    block->level = indent_level++;
-    // indent_level++;
-
-    blocks = block;
-    return block->id;
-}
-
-int else_eligible(int indent) {
-    block_t *t = blocks;
-
-    int i = 0;
-    while (t && t->level >= indent) {
-        i++;
-        if (t->level == indent) {
-            return i;
-        }
-        t = t->back;
-    }
-    return i;
-}
-
-void check_stm(int indent, int is_if) {
-    block_t *t = blocks;
-    if (is_if)
-        indent++;
-    while (t && t->level >= indent) {
-        blocks = t->back;
-        free(t);
-        t = blocks;
-    }
 }
 
 int create_text(char *msg) {
@@ -622,21 +605,28 @@ void add_exp(exp_t *exp) {
     }
 }
 
-void add_cmp(int op, int id) {
+void add_cmp(int op, int id, int have_else) {
     add("CMP", "RBX, RAX");
+
+    char *tmp = malloc(sizeof(char) * 5);
+    if (have_else)
+        strcpy(tmp, "else");
+    else
+        strcpy(tmp, "cont");
+    
     if (op == 0)
         // add_ins("JE");
-        add_all("JE", "else", id, "");
+        add_all("JE", tmp, id, "");
     else if(op == 1)
-        add_all("JNE", "else", id, "");
+        add_all("JNE", tmp, id, "");
     else if(op == 2)
-        add_all("JLE", "else", id, "");
+        add_all("JLE", tmp, id, "");
     else if(op == 3)
-        add_all("JGE", "else", id, "");
+        add_all("JGE", tmp, id, "");
     else if(op == 4)
-        add_all("JL", "else", id, "");
+        add_all("JL", tmp, id, "");
     else if(op == 5)
-        add_all("JG", "else", id, "");
+        add_all("JG", tmp, id, "");
     // fprintf(fp,"else%d\n",id);
 }
 
