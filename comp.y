@@ -80,8 +80,8 @@ int cond_id = 0, loop_id = 0, pow_id = 0;
 %token      END_OF_FILE 0
 
 %type <e>   exp
-%type <i>   hex indent stm
-%type <s>   text
+%type <i>   hex stm
+%type <s>   text assignexp printexp ifexp elsexp loopexp
 
 %left                                   '+' '-'
 %left                                   '*' '/' '%'
@@ -139,38 +139,27 @@ file:
 
 line:
   %empty
-| stm
-| line NL stm
-| line error NL stm                     {
+| stm line
+| stm error line                        {
                                             YYABORT;
                                         }
 ;
 
-indent:
-  %empty                                {   $$ = 0;                                     }
-| indent INDENT                               {   $$ = $1 + 1;                                }
+end:
+  NL
+| END_OF_FILE
+;
+
+inblock:
+  INDENT stm
+| inblock NL INDENT stm
 ;
 
 stm:
-  indent assignexp                         {   check_stm($1, 0);                           }
-| indent printexp                          {   check_stm($1, 0);                           }
-| indent ifexp                             {   check_stm($1, 1);                           }
-| indent elsexp                            {
-                                            int n = else_eligible($1);
-                                            if (n == 0) {
-                                                yyerror("unexpected else statement");
-                                            }
-                                            check_stm($1, 0);
-                                            // block_t *t;
-                                            // while (n > 0) {
-                                            //     t = blocks;
-                                            //     // fprintf(fp, "else%d:\n", t->id);
-                                            //     blocks = t->back;
-                                            //     free(t);
-                                            //     n--;
-                                            // }
-                                        }
-| indent loopexp
+  assignexp end
+| printexp end
+| ifexp
+| loopexp
 ;
 
 text:
@@ -283,7 +272,8 @@ assignexp:
 ;
 
 ifexp:
-  IF '(' exp CMP exp ')' ':'            {
+  IF '(' exp CMP exp ')' ':' NL INDENT stm DEDENT elsexp
+                                        {
                                             int id = create_block();
 
                                             print_exp($3);
@@ -298,11 +288,13 @@ ifexp:
 ;
 
 elsexp:
-  ELSE ':'
+  %empty
+| ELSE ':' NL INDENT stm DEDENT         {}
 ;
 
 loopexp:
-  REPEAT '(' exp '|' exp ')' ':'        {
+  REPEAT '(' exp '|' exp ')' ':' NL INDENT stm DEDENT
+                                        {
                                             // create_block();
                                             // printf("repeat %d -> %d:\n", $3, $5);
                                         }
