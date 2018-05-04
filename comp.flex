@@ -19,6 +19,8 @@ int getReg(char);
 ">-<"                       {   yylval.i = 0; return CMP;                        }
 "<->"                       {   yylval.i = 1; return CMP;                        }
 
+"->>"                       {   return DRIGHT_ARROW;                              }
+
 "<-"                        {   return LEFT_ARROW;                               }
 "->"                        {   return RIGHT_ARROW;                              }
 
