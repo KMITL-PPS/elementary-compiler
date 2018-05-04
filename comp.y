@@ -76,11 +76,11 @@ int cond_id = 0, loop_id = 0, pow_id = 0;
 %token <i>  CMP
 %token      LEFT_ARROW RIGHT_ARROW DRIGHT_ARROW
 %token      IF ELSE REPEAT
-%token      TAB
+%token      INDENT DEDENT
 %token      END_OF_FILE 0
 
 %type <e>   exp
-%type <i>   hex tab stm
+%type <i>   hex indent stm
 %type <s>   text
 
 %left                                   '+' '-'
@@ -146,16 +146,16 @@ line:
                                         }
 ;
 
-tab:
+indent:
   %empty                                {   $$ = 0;                                     }
-| tab TAB                               {   $$ = $1 + 1;                                }
+| indent INDENT                               {   $$ = $1 + 1;                                }
 ;
 
 stm:
-  tab assignexp                         {   check_stm($1, 0);                           }
-| tab printexp                          {   check_stm($1, 0);                           }
-| tab ifexp                             {   check_stm($1, 1);                           }
-| tab elsexp                            {
+  indent assignexp                         {   check_stm($1, 0);                           }
+| indent printexp                          {   check_stm($1, 0);                           }
+| indent ifexp                             {   check_stm($1, 1);                           }
+| indent elsexp                            {
                                             int n = else_eligible($1);
                                             if (n == 0) {
                                                 yyerror("unexpected else statement");
@@ -170,7 +170,7 @@ stm:
                                             //     n--;
                                             // }
                                         }
-| tab loopexp
+| indent loopexp
 ;
 
 text:
@@ -329,13 +329,13 @@ int create_block() {
     return block->id;
 }
 
-int else_eligible(int tab) {
+int else_eligible(int indent) {
     block_t *t = blocks;
 
     int i = 0;
-    while (t && t->level >= tab) {
+    while (t && t->level >= indent) {
         i++;
-        if (t->level == tab) {
+        if (t->level == indent) {
             return i;
         }
         t = t->back;
@@ -343,11 +343,11 @@ int else_eligible(int tab) {
     return i;
 }
 
-void check_stm(int tab, int is_if) {
+void check_stm(int indent, int is_if) {
     block_t *t = blocks;
     if (is_if)
-        tab++;
-    while (t && t->level >= tab) {
+        indent++;
+    while (t && t->level >= indent) {
         blocks = t->back;
         free(t);
         t = blocks;
