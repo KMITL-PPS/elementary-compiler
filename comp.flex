@@ -15,7 +15,7 @@ int getReg(char);
 
 int level = 0;
 %}
-
+%option yylineno
 %%
 
 <INITIAL>.*|\n              {
@@ -53,7 +53,7 @@ int level = 0;
                                     return DEDENT;
                                 } else {
                                     BEGIN(NORMAL);
-                                    // return END_OF_FILE;
+                                    // return ENDFILE;
                                 }
                             }
 
@@ -104,12 +104,12 @@ int level = 0;
                             }
 
 \n                          {
-                                yylineno++;
+                                // yylineno++;
                                 BEGIN(START);
                                 return NL;
                             }
 
-<<EOF>>                     {   return END_OF_FILE;                              }
+<<EOF>>                     {   return ENDFILE;                              }
 
 [ \v\f]                     {   /* ignore whitespace */                          }
 
@@ -122,14 +122,14 @@ long hexToDec(char *s)
     // } for dummy purpose
     int i = 0;
     long value = 0;
-    for (i = 0; s[i] != 'h' && s[i] != 'H'; i++) {
+    for (i = 0; s[i] != '#'; i++) {
         value *= 16;
         if (s[i] >= '0' && s[i] <= '9') {
             value += s[i] - '0';
         } else {
             if (s[i] >= 65 && s[i] <= 90)
                 s[i] = s[i] + 32;
-            value += s[i] - 'A' + 10;
+            value += s[i] - 'a' + 10;
         }
     }
 

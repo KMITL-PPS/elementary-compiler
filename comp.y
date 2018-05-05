@@ -12,16 +12,6 @@ struct buffer_t {
     buffer_t *next;
 } **cur_buf;
 
-typedef struct block_t block_t;
-struct block_t {
-    block_t *back;
-
-    // int type;               // 0 = if, 1 = else, 2 = repeat
-    int id;
-    // int right;
-    int level;
-} *blocks;
-
 typedef struct text_t text_t;
 struct text_t {
     int id;
@@ -66,6 +56,7 @@ extern void print_syscall(void);
 extern void println(char *);
 extern void print_space(int);
 extern FILE *fp;
+extern int yylineno;
 
 int cond_id = 0, loop_id = 0, pow_id = 0;
 int have_print_dec = 0, have_print_hex = 0, have_print_nl = 0;
@@ -81,6 +72,7 @@ int have_print_dec = 0, have_print_hex = 0, have_print_nl = 0;
 }
 
 %start file
+%locations
 
 %token <i>  REG
 %token <l>  CONSTANT
@@ -91,12 +83,12 @@ int have_print_dec = 0, have_print_hex = 0, have_print_nl = 0;
 %token      LEFT_ARROW
 %token      IF ELSE REPEAT
 %token      INDENT DEDENT
-%token      END_OF_FILE 0
+%token      ENDFILE 0
 
 %type <e>   exp
 %type <i>   hex
 %type <s>   text
-%type <b>   line stm assignexp printexp ifexp elsexp loopexp
+%type <b>   line stm assignexp printexp ifexp elsexp loopexp condloop
 
 %left                                   '+' '-'
 %left                                   '*' '/' '%'
@@ -106,7 +98,7 @@ int have_print_dec = 0, have_print_hex = 0, have_print_nl = 0;
 %%
 
 file:
-  line END_OF_FILE                      {
+  line ENDFILE                      {
                                             buffer_t *tail = $1;
                                             while (tail) {
                                                 if (tail->str)
@@ -134,8 +126,15 @@ file:
                                                 print_hex();
                                                 println("");
                                             }
+
+                                            // bss section
+                                            print("section", ".bss");
+
+                                            // append temp of print data
+                                            println("number          RESB    20");
                                             
                                             // data section
+                                            println("");
                                             print("section", ".data");
 
                                             // append constant variable
@@ -150,13 +149,6 @@ file:
                                             // append some useful characters
                                             println("nl              DB      0xA");
                                             println("dash            DB      0x2D");
-
-                                            // bss section
-                                            println("");
-                                            print("section", ".bss");
-
-                                            // append temp of print data
-                                            println("number          RESB    20");
 
                                             // append text data
                                             text_t *t;
@@ -370,32 +362,61 @@ elsexp:
                                         }
 ;
 
-loopexp:
-  REPEAT '(' exp '|' exp ')' ':' NL INDENT line DEDENT
-                                        {
+condloop:
+  exp '|' exp                           {
                                             $$ = buf();
-                                            
+
+                                            addln("-1");
+
+                                            add_exp($1);
+                                            add("MOV", "RCX, RAX");
+                                            add("PUSH", "RCX");
+                                            add_exp($3);
+                                            add("POP", "RCX");
+                                        }
+| REG LEFT_ARROW exp '|' exp            {
+                                            $$ = buf();
+
+                                            char *tmp = malloc(sizeof(char) * 3);
+                                            sprintf(tmp, "%02d", $1);
+                                            addln(tmp);
+
                                             add_exp($3);
                                             add("MOV", "RCX, RAX");
                                             add("PUSH", "RCX");
                                             add_exp($5);
                                             add("POP", "RCX");
+                                        }
+;
+
+loopexp:
+  REPEAT '(' condloop ')' ':' NL INDENT line DEDENT
+                                        {
+                                            $$ = buf();
+                                            
+                                            // add_exp($3);
+                                            // add("MOV", "RCX, RAX");
+                                            // add("PUSH", "RCX");
+                                            // add_exp($5);
+                                            // add("POP", "RCX");
+
+                                            (*cur_buf)->next = $3->next->next;
 
                                             add_label("loop", loop_id);
                                             add("CMP", "RCX, RAX");
                                             add_all("JG", "lpcn", loop_id, "");
                                             add("PUSH", "RCX");
                                             add("PUSH", "RAX");
+
+                                            int reg = atoi($3->next->str);
+                                            // printf("%d", reg);
+                                            if (reg >= 0) {
+                                                add_all("MOV", "[reg + ", reg * 8, "], RCX");
+                                            }
                                             addln("");
 
-                                            // TODO: recheck this
-                                            // buffer_t *t = $10;
-                                            // while (t) {
-                                            //     addln(t->str);
-                                            //     t = t->next;
-                                            // }
                                             buffer_t *t = get_buf_tail();
-                                            t->next = $10;
+                                            t->next = $8;
 
                                             add("POP", "RAX");
                                             add("POP", "RCX");
@@ -409,7 +430,7 @@ loopexp:
 %%
 
 void yyerror(char *s) {
-    fprintf(stderr, "! ERROR: %s\n", s);
+    fprintf(stderr, "! ERROR: line %d: %s\n", yylineno, s);
 }
 
 int len(long num) {
@@ -563,7 +584,9 @@ void add_exp(exp_t *exp) {
             }
         } else if (exp->val == '/') {
             add("MOV", "RAX, RCX");
-            add("DIV", "RDX");
+            add("MOV", "RSI, RDX");
+            add("XOR", "RDX, RDX");
+            add("DIV", "RSI");
             if (exp->pos == -1) {
                 // done
             } else if (exp->pos == 0) {
@@ -573,7 +596,9 @@ void add_exp(exp_t *exp) {
             }
         } else if (exp->val == '%') {
             add("MOV", "RAX, RCX");
-            add("DIV", "RDX");
+            add("MOV", "RSI, RDX");
+            add("XOR", "RDX, RDX");
+            add("DIV", "RSI");
             if (exp->pos == -1) {
                 add("MOV", "RAX, RDX");
             } else if (exp->pos == 0) {
